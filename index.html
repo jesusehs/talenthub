@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TalentHub Executive · Adriana Olivos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { brand: { 50:'#F0F7FF',100:'#E0EFFE',500:'#0284C7',600:'#0369A1',700:'#075985',900:'#0C4A6E' } } } } };
+  </script>
+  <style type="text/tailwindcss">
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .lbl { @apply block font-semibold text-slate-700 mb-1 text-[11px]; }
+    .inp { @apply w-full border border-slate-300 rounded-lg px-2 py-1.5 text-xs outline-none bg-white focus:ring-2 focus:ring-sky-500 disabled:bg-slate-50 disabled:text-slate-600; }
+    .box { @apply p-3 rounded-xl border space-y-2.5; }
+    .box-title { @apply font-bold text-[11px] uppercase flex items-center gap-1.5; }
+    .btn { @apply inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed; }
+    .btn-primary { @apply bg-sky-700 hover:bg-sky-800 text-white shadow-sm; }
+    .btn-dark { @apply bg-slate-800 hover:bg-slate-900 text-white shadow-sm; }
+    .btn-green { @apply bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm; }
+    .btn-ghost { @apply border border-slate-200 text-slate-600 hover:bg-slate-50 bg-white; }
+    .btn-warn { @apply bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200; }
+    .link-btn { @apply font-semibold inline-flex items-center gap-0.5 hover:underline; }
+    .card { @apply bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-sky-400 transition space-y-2; }
+    .panel { @apply bg-white rounded-xl border border-slate-200 shadow-sm; }
+    .chip { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold; }
+    .kanban-col { min-width: 290px; max-width: 310px; }
+    .filter-chip { @apply px-2.5 py-1 rounded-full border text-[11px] font-semibold transition border-slate-200 bg-white text-slate-600 hover:bg-slate-50; }
+    .filter-chip[aria-pressed="true"] { @apply bg-sky-700 text-white border-sky-700; }
+    .tab-btn { @apply px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition flex items-center gap-1.5 whitespace-nowrap; }
+    .tab-btn.active { @apply bg-white text-sky-800 shadow-sm; }
+    th { @apply font-semibold; }
+  </style>
+  <style>
+    .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    .drag-over { background-color: #E0F2FE !important; outline: 2px dashed #0284C7; border-radius: 10px; }
+    .card-dragging { opacity: 0.4; }
+    body.ro .edit-only { display: none !important; }
+    body:not(.is-admin) .admin-only { display: none !important; }
+    .flash { animation: flash 1.6s ease-out; }
+    @keyframes flash { 0% { box-shadow: 0 0 0 4px #38bdf8; } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @media screen { #print-root { display: none; } }
+    @media print {
+      body > *:not(#print-root) { display: none !important; }
+      #print-root { display: block !important; }
+      @page { size: A4; margin: 16mm; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+
+  <!-- Cargando -->
+  <div id="screen-loading" class="min-h-screen flex items-center justify-center text-slate-500 text-sm gap-2">
+    <i class="ph ph-circle-notch animate-spin text-xl"></i> Cargando TalentHub…
+  </div>
+
+  <!-- Login / registro -->
+  <div id="screen-auth" class="hidden min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm max-w-sm w-full p-6 space-y-5">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-sky-800 to-sky-600 text-white flex items-center justify-center font-bold">AO</div>
+        <div>
+          <h1 class="text-sm font-bold text-slate-900">TalentHub Executive</h1>
+          <p class="text-xs text-slate-500">Adriana Olivos · Headhunting B2B</p>
+        </div>
+      </div>
+      <div id="auth-box"></div>
+    </div>
+  </div>
+
+  <!-- Páginas públicas (formulario del postulante / vista del cliente) -->
+  <div id="screen-public" class="hidden min-h-screen"></div>
+
+  <!-- Aplicación -->
+  <div id="screen-app" class="hidden min-h-screen flex flex-col">
+    <div id="demo-banner" class="hidden bg-amber-50 border-b border-amber-200 text-amber-900 text-xs px-4 py-2"></div>
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div class="px-4 md:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-800 to-sky-600 text-white flex items-center justify-center font-bold">AO</div>
+          <div>
+            <h1 class="text-sm md:text-base font-bold text-slate-900 leading-tight">TalentHub Executive · <span id="brand-name">Adriana Olivos</span></h1>
+            <p class="text-[11px] text-slate-500">Headhunting B2B · Gestión integral de procesos de selección</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="exportBackup()" class="admin-only btn btn-ghost" title="Descarga toda la base de datos en un archivo .json"><i class="ph ph-download-simple"></i> Exportar respaldo (.json)</button>
+          <button onclick="openRestoreModal()" class="admin-only btn btn-ghost" title="Restaura la base desde un archivo .json"><i class="ph ph-upload-simple"></i> Restaurar respaldo</button>
+          <div class="flex items-center gap-2 pl-2 border-l border-slate-200">
+            <div class="text-right leading-tight">
+              <p id="user-email" class="text-[11px] font-semibold text-slate-700"></p>
+              <p id="user-role" class="text-[10px] text-slate-500"></p>
+            </div>
+            <button onclick="logout()" title="Cerrar sesión" class="btn btn-ghost px-2"><i class="ph ph-sign-out"></i></button>
+          </div>
+        </div>
+      </div>
+      <nav id="nav" class="px-4 md:px-6 pb-2 overflow-x-auto custom-scrollbar">
+        <div id="nav-inner" class="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold"></div>
+      </nav>
+    </header>
+
+    <main class="flex-1 p-4 md:p-6 w-full max-w-[1600px] mx-auto">
+      <section id="sec-procesos" class="space-y-4"></section>
+      <section id="sec-candidatos" class="space-y-4 hidden"></section>
+      <section id="sec-expedientes" class="space-y-4 hidden"></section>
+      <section id="sec-metricas" class="space-y-4 hidden"></section>
+      <section id="sec-finanzas" class="space-y-4 hidden"></section>
+      <section id="sec-competencias" class="space-y-4 hidden"></section>
+      <section id="sec-assessment" class="space-y-4 hidden"></section>
+      <section id="sec-plantillas" class="space-y-4 hidden"></section>
+      <section id="sec-admin" class="space-y-4 hidden"></section>
+    </main>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" class="fixed bottom-4 right-4 z-[60] space-y-2 max-w-sm"></div>
+  <div id="print-root"></div>
+
+<script>
+// =====================================================================
+//  TalentHub Executive · Adriana Olivos
+//  ---------------------------------------------------------------------
+//  CONFIGURACIÓN: pega aquí los datos de tu proyecto Supabase
+//  (Supabase > Project Settings > API). Si se dejan vacíos, el sistema
+//  funciona en MODO DEMO (datos solo en este navegador).
+// =====================================================================
+const SUPABASE_URL = '';        // ej: 'https://abcdefgh.supabase.co'
+const SUPABASE_ANON_KEY = '';   // la clave "anon public" (es segura de publicar)
+
+// ---------------------------------------------------------------------
+const MODE = (SUPABASE_URL && SUPABASE_ANON_KEY) ? 'cloud' : 'demo';
+const INITIAL_HASH = location.hash; // se lee antes de que Supabase limpie la URL (recuperación de contraseña)
+const sb = (MODE === 'cloud' && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { flowType: 'implicit', persistSession: true, detectSessionInUrl: true } }) : null;
+const BUCKET = 'documentos';
+const MAX_FILE = 10 * 1024 * 1024;
+
+const DEFAULT_PHASES = ['Filtro Curricular', 'Filtro Telefónico (CUL)', 'Fase 1', 'Fase 2', 'Fase 3 (Checklist)', 'Informe Psicolaboral', 'Entrevista con el Cliente'];
+const DEFAULT_STAGES = ['Alineación / Brief', 'Convocatoria Abierta', 'Filtros & Sintonía', 'Evaluaciones Activas', 'Terna Presentada', 'Negociación / Oferta', 'Cerrado & Facturado'];
+const CUL_OPTS = ['Pendiente', 'En trámite', 'Sin antecedentes ✓', 'Observado / Descarte'];
+const SUNEDU_OPTS = ['Pendiente', 'Registrado ✓', 'No figura', 'Secundaria / Técnico'];
+const CALL_OPTS = ['Pendiente', 'Apto (Excelente sintonía)', 'Apto', 'Descarte Salarial', 'No contesta'];
+const RATING_OPTS = ['Pendiente', 'Apto', 'Apto con observaciones', 'No apto'];
+const STATUS_OPTS = [['activo', 'Activo en proceso'], ['contratado', 'Contratado'], ['descartado', 'Descartado']];
+const MODALITY_OPTS = ['Presencial', 'Híbrido', 'Remoto 100%'];
+const CONTRACT_OPTS = ['A Plazo Fijo (Sujeto a Modalidad)', 'Indeterminado / Indefinido', 'Por Inicio o Incremento de Actividad', 'Locación de Servicios (RxH / Honorarios)', 'Convenio de Prácticas (Pre/Pro)'];
+const PAYROLL_OPTS = ['Planilla General (Régimen Común)', 'Planilla REMYPE (Pequeña Empresa)', 'Planilla REMYPE (Microempresa)', 'Planilla Régimen Agrario', 'Sin Planilla (Honorarios / RxH)'];
+const FREQ_OPTS = ['Quincenal y Fin de Mes', 'Mensual', 'Semanal'];
+const TPL_CATS = [['Llenado del Postulante', 'Llenado del Postulante (Datos/DDJJ)'], ['Evaluación STAR', 'Guía de Entrevista por Competencias'], ['Referencias Laborales', 'Verificación de Referencias'], ['Carta Oferta', 'Carta Oferta / Incorporación'], ['Otro', 'Otro Formato Operativo']];
+const ROLE_LABEL = { admin: 'Administradora', editor: 'Editor', lector: 'Solo lectura', pendiente: 'Pendiente' };
+const TABLES = ['processes', 'candidates', 'billing', 'competencies', 'dynamics', 'templates', 'documents', 'activity_log', 'settings'];
+
+const TABS = [
+  { id: 'procesos', label: 'Procesos B2B', icon: 'briefcase' },
+  { id: 'candidatos', label: 'Candidatos', icon: 'users' },
+  { id: 'expedientes', label: 'Expedientes & Docs', icon: 'folder-open' },
+  { id: 'metricas', label: 'Métricas & KPIs', icon: 'chart-bar' },
+  { id: 'finanzas', label: 'Finanzas', icon: 'currency-dollar', admin: true },
+  { id: 'competencias', label: 'Diccionario STAR', icon: 'brain' },
+  { id: 'assessment', label: 'Assessment Center', icon: 'users-three' },
+  { id: 'plantillas', label: 'Plantillas & Fichas', icon: 'clipboard-text' },
+  { id: 'admin', label: 'Usuarios & Config.', icon: 'gear', admin: true },
+];
+
+// ============================ UTILIDADES ============================
+const $ = (id) => document.getElementById(id);
+function esc(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+}
+function todayISO() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function nowISO() { return new Date().toISOString(); }
+function addDaysISO(n) { const d = new Date(); d.setDate(d.getDate() + n); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function toDate(s) {
+  if (!s) return null;
+  if (s instanceof Date) return isNaN(s) ? null : s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+function daysSince(s) { const d = toDate(s); if (!d) return 0; return Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000)); }
+function daysBetween(a, b) { const da = toDate(a), db = toDate(b); if (!da || !db) return null; return Math.round((db - da) / 86400000); }
+function fmtDate(s) { const d = toDate(s); return d ? d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'; }
+function fmtDateTime(s) { const d = toDate(s); return d ? d.toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'; }
+function ageFrom(b) {
+  const d = toDate(b); if (!d) return '';
+  const t = new Date(); let a = t.getFullYear() - d.getFullYear(); const m = t.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < d.getDate())) a--;
+  return a > 0 && a < 120 ? a + ' años' : '';
+}
+function money(n) { return 'S/ ' + (Number(n) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function norm(s) { return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); }
+function safeName(n) { return norm(n).replace(/[^a-z0-9._-]+/g, '_').replace(/_+/g, '_').slice(-80) || 'archivo'; }
+function fileSize(n) { n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+function opts(list, sel) {
+  return list.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${String(v) === String(sel ?? '') ? 'selected' : ''}>${esc(l)}</option>`; }).join('');
+}
+function optsWithCurrent(list, sel) { // agrega el valor actual si no está en la lista (datos antiguos)
+  const vals = list.map(o => Array.isArray(o) ? o[0] : o);
+  return opts(sel && !vals.includes(sel) ? [...list, sel] : list, sel);
+}
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
+const baseURL = () => location.href.split('#')[0].split('?')[0];
+function readAsDataURL(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
+
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  const tone = type === 'error' ? 'bg-rose-600' : type === 'warn' ? 'bg-amber-600' : 'bg-slate-900';
+  el.className = `${tone} text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-start gap-2`;
+  el.innerHTML = `<i class="ph-bold ${type === 'error' ? 'ph-warning-circle' : type === 'warn' ? 'ph-warning' : 'ph-check-circle'} text-sm mt-px"></i><span>${esc(msg)}</span>`;
+  const root = $('toast-root'); root.appendChild(el);
+  while (root.children.length > 3) root.firstElementChild.remove();
+  setTimeout(() => el.remove(), type === 'error' ? 7000 : 3500);
+}
+function err(e) { console.error(e); toast(e?.message || String(e), 'error'); }
+
+// Formularios: helpers de campos
+function fInput(id, label, val, o = {}) {
+  return `<div class="${o.cls || ''}"><label class="lbl" for="${id}">${label}${o.req ? ' <span class="text-rose-500">*</span>' : ''}</label>
+    <input id="${id}" type="${o.type || 'text'}" value="${esc(val ?? '')}" ${o.req ? 'required' : ''} placeholder="${esc(o.ph || '')}" class="inp ${o.icls || ''}" ${o.attrs || ''}></div>`;
+}
+function fSelect(id, label, list, sel, o = {}) {
+  return `<div class="${o.cls || ''}"><label class="lbl" for="${id}">${label}</label><select id="${id}" class="inp ${o.icls || ''}" ${o.attrs || ''}>${o.raw || optsWithCurrent(list, sel)}</select></div>`;
+}
+function fText(id, label, val, o = {}) {
+  return `<div class="${o.cls || ''}"><label class="lbl" for="${id}">${label}${o.req ? ' <span class="text-rose-500">*</span>' : ''}</label>
+    <textarea id="${id}" rows="${o.rows || 2}" ${o.req ? 'required' : ''} placeholder="${esc(o.ph || '')}" class="inp ${o.icls || ''}">${esc(val ?? '')}</textarea></div>`;
+}
+function fCheck(id, label, checked, o = {}) {
+  return `<label class="flex items-start gap-2 bg-white p-2 rounded-lg border ${o.border || 'border-slate-200'} cursor-pointer ${o.cls || ''}">
+    <input type="checkbox" id="${id}" ${checked ? 'checked' : ''} class="w-4 h-4 mt-0.5 rounded"><span><span class="font-semibold text-slate-700">${label}</span>${o.help ? `<span class="block text-[10px] text-slate-500">${o.help}</span>` : ''}</span></label>`;
+}
+const val = (id) => ($(id)?.value ?? '').trim();
+const chk = (id) => !!$(id)?.checked;
+
+// Modales (se apilan)
+function openModal({ title, subtitle = '', body, size = 'max-w-2xl', footer = '' }) {
+  const wrap = document.createElement('div');
+  wrap.dataset.modal = '1';
+  wrap.className = 'fixed inset-0 bg-slate-900/40 z-50 flex items-start md:items-center justify-center p-2 md:p-4';
+  wrap.innerHTML = `<div class="bg-white rounded-2xl ${size} w-full shadow-xl border border-slate-200 flex flex-col max-h-[96vh]">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-3.5">
+        <div class="min-w-0"><h3 class="text-sm md:text-base font-bold text-slate-900">${title}</h3>${subtitle ? `<p class="text-xs text-slate-500">${subtitle}</p>` : ''}</div>
+        <button data-close class="text-slate-400 hover:text-slate-600 text-xl leading-none" title="Cerrar"><i class="ph ph-x"></i></button>
+      </div>
+      <div class="overflow-y-auto px-5 py-4 text-xs custom-scrollbar">${body}</div>
+      ${footer ? `<div class="px-5 py-3 border-t border-slate-100 flex flex-wrap justify-end gap-2">${footer}</div>` : ''}
+    </div>`;
+  wrap.close = () => wrap.remove();
+  wrap.addEventListener('click', e => { if (e.target.closest('[data-close]')) wrap.close(); });
+  $('modal-root').appendChild(wrap);
+  return wrap;
+}
+function closeTopModal() { const r = $('modal-root'); if (r.lastElementChild) r.lastElementChild.remove(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeTopModal(); });
+async function busy(btnSel, fn) {
+  const btns = document.querySelectorAll(btnSel);
+  btns.forEach(b => b.disabled = true);
+  try { return await fn(); } catch (e) { err(e); } finally { btns.forEach(b => b.disabled = false); }
+}
+function printHTML(html) { $('print-root').innerHTML = html; setTimeout(() => window.print(), 50); }
+async function copyText(t) { try { await navigator.clipboard.writeText(t); toast('Enlace copiado'); } catch (e) { prompt('Copia el enlace:', t); } }
+
+// ======================= MODO DEMO (localStorage) =======================
+const DEMO_KEY = 'th_demo_v2', DEMO_FILES = 'th_demo_files_v2';
+let DEMO = null;
+function demoLoad() {
+  try { DEMO = JSON.parse(localStorage.getItem(DEMO_KEY)); } catch (e) { DEMO = null; }
+  if (!DEMO || !Array.isArray(DEMO.processes)) { DEMO = demoSeed(); demoSave(); }
+  TABLES.forEach(t => { if (!Array.isArray(DEMO[t])) DEMO[t] = []; });
+}
+function demoSave() { try { localStorage.setItem(DEMO_KEY, JSON.stringify(DEMO)); } catch (e) { toast('No hay espacio en el navegador (modo demo).', 'error'); } }
+function demoFiles() { try { return JSON.parse(localStorage.getItem(DEMO_FILES)) || {}; } catch (e) { return {}; } }
+const CAND_DEFAULTS = { phase: 1, max_phase: 1, status: 'activo', cul: 'Pendiente', sunedu: 'Pendiente', call_result: 'Pendiente', check_psych: false, check_biocv: false, check_videoref: false, check_callref: false, report_rating: 'Pendiente', client_visible: false, source: 'manual' };
+
+function demoSeed() {
+  const now = nowISO(), ago = (n) => new Date(Date.now() - n * 86400000).toISOString();
+  const p1 = uid(), p2 = uid(), p3 = uid();
+  const proc = (o) => ({ vacancies_count: 1, apply_enabled: false, show_client_public: false, client_view_enabled: false, apply_token: uid(), client_token: uid(), created_at: now, updated_at: now, closed_at: null, ...o });
+  const cand = (o) => ({ ...CAND_DEFAULTS, id: uid(), created_at: now, updated_at: now, ...o });
+  return {
+    processes: [
+      proc({ id: p1, stage: 2, client: 'Finanty S.A.', job_title: 'Asesores de Cobranza Telefónica (Campaña Masiva)', brief_date: addDaysISO(-22), stage_changed_at: ago(16), vacancies_count: 3, contact_name: 'Lic. Hernán Rojas', salary: 'S/ 1,800 + Comisiones', schedule: 'L-V 8:30 a 18:00', location: 'San Isidro', modality: 'Híbrido', contract_type: CONTRACT_OPTS[0], payroll_type: PAYROLL_OPTS[0], payment_freq: FREQ_OPTS[0], description: 'Gestión telefónica de cartera morosa de 90 a 180 días de atraso. Negociación y refinanciamientos.', requirements: 'Mínimo 6 meses en cobranzas o ventas telefónicas. Habilidades de persuasión.', apply_enabled: true, client_view_enabled: true }),
+      proc({ id: p2, stage: 1, client: 'Agroindustrial Molinera', job_title: 'Jefe de Operaciones de Planta', brief_date: addDaysISO(-5), stage_changed_at: ago(5), contact_name: 'Ing. Carlos Morales', salary: 'S/ 4,500', schedule: 'L-V 8:00 a 18:00 / Sáb 9:00 a 13:00', location: 'Lurín', modality: 'Presencial', contract_type: CONTRACT_OPTS[1], payroll_type: PAYROLL_OPTS[0], payment_freq: FREQ_OPTS[0], description: 'Liderar la producción en planta, gestión de 50 operarios y seguridad industrial.', requirements: 'Titulado en Ing. Industrial, 3 años de experiencia en plantas de consumo masivo.' }),
+      proc({ id: p3, stage: 7, client: 'Inmobiliaria Urbana', job_title: 'Gerente Comercial', brief_date: addDaysISO(-60), stage_changed_at: ago(8), closed_at: addDaysISO(-8), contact_name: 'Gerencia General', salary: 'S/ 12,000', location: 'Miraflores', modality: 'Presencial', contract_type: CONTRACT_OPTS[1], payroll_type: PAYROLL_OPTS[0], payment_freq: FREQ_OPTS[1], description: 'Liderar la estrategia comercial y el equipo de ventas de proyectos inmobiliarios.', requirements: '8+ años en ventas inmobiliarias, 3+ liderando equipos.' }),
+    ],
+    candidates: [
+      cand({ process_id: p1, client: 'Finanty S.A.', job_title: 'Asesores de Cobranza Telefónica (Campaña Masiva)', name: 'Ana Torres Gómez', dni: '45871236', birthdate: '1998-04-15', phase: 6, max_phase: 6, cul: 'Sin antecedentes ✓', sunedu: 'Registrado ✓', call_result: 'Apto (Excelente sintonía)', d1: 'Apto: Negociación asertiva con deudor hostil logrando abono de S/ 600', d2: 'Apto: Liderazgo participativo en dinámica grupal de priorización', check_psych: true, check_biocv: true, check_videoref: true, check_callref: true, videocv: 'Aprobado (2 min): Buena dicción y presencia', references_text: 'Jefe de Cobranza anterior: 100% recomendada, sin tardanzas', notes: 'Candidata sobresaliente con alta tolerancia a la frustración y orientación al logro.', report_rating: 'Apto', client_visible: true, last_moved_at: ago(3), created_at: ago(20) }),
+      cand({ process_id: p1, client: 'Finanty S.A.', job_title: 'Asesores de Cobranza Telefónica (Campaña Masiva)', name: 'Carlos Mendoza Ruiz', dni: '71245896', birthdate: '1999-11-20', phase: 5, max_phase: 5, cul: 'Sin antecedentes ✓', sunedu: 'Registrado ✓', call_result: 'Apto', d1: 'Apto en simulación de caso de cobranza', d2: 'Apto en dinámica grupal', check_psych: true, check_biocv: true, videocv: 'Pendiente', references_text: 'Pendiente de llamada a jefatura', notes: 'Perfil comercial con buen potencial.', last_moved_at: ago(10), created_at: ago(18) }),
+      cand({ process_id: p1, client: 'Finanty S.A.', job_title: 'Asesores de Cobranza Telefónica (Campaña Masiva)', name: 'Pedro Salas Quispe', dni: '70011223', birthdate: '1995-02-02', phase: 3, max_phase: 3, status: 'descartado', discard_reason: 'Pretensión salarial fuera de rango', cul: 'Sin antecedentes ✓', last_moved_at: ago(12), created_at: ago(19) }),
+      cand({ process_id: p2, client: 'Agroindustrial Molinera', job_title: 'Jefe de Operaciones de Planta', name: 'Lucía Fernández Soto', dni: '42157896', birthdate: '1990-03-12', phase: 2, max_phase: 2, cul: 'En trámite', sunedu: 'Registrado ✓', call_result: 'Apto (Excelente sintonía)', notes: 'Cumple con experiencia de planta en Lurín.', source: 'formulario', last_moved_at: ago(2), created_at: ago(4) }),
+      cand({ process_id: p3, client: 'Inmobiliaria Urbana', job_title: 'Gerente Comercial', name: 'Roberto Chávez Lira', dni: '09876543', birthdate: '1982-07-30', phase: 7, max_phase: 7, status: 'contratado', hired_at: addDaysISO(-10), cul: 'Sin antecedentes ✓', sunedu: 'Registrado ✓', call_result: 'Apto (Excelente sintonía)', check_psych: true, check_biocv: true, check_videoref: true, check_callref: true, report_rating: 'Apto', client_visible: true, last_moved_at: ago(10), created_at: ago(50) }),
+    ],
+    billing: [
+      { id: uid(), process_id: p1, client: 'Finanty S.A.', service: 'Asesores de Cobranza Telefónica (Campaña Masiva)', contact: 'Lic. Hernán Rojas', cost: 6500, percent: 20, status: 'Pagado', paid_at: addDaysISO(-15), created_at: now },
+      { id: uid(), process_id: p2, client: 'Agroindustrial Molinera', service: 'Jefe de Operaciones de Planta', contact: 'Ing. Carlos Morales', cost: 6000, percent: 20, status: 'Pendiente', created_at: now },
+      { id: uid(), process_id: p3, client: 'Inmobiliaria Urbana', service: 'Gerente Comercial', contact: 'Gerencia General', cost: 15000, percent: 20, status: 'Pendiente', created_at: now },
+    ],
+    competencies: [
+      { id: uid(), created_at: now, name: 'Negociación Persuasiva & Cobranzas', tag: 'Cobranzas / Comercial', definition: 'Capacidad para gestionar objeciones de clientes morosos, logrando compromisos formales de pago mediante una comunicación firme, empática y orientada al beneficio mutuo.', positive: '• Escucha activa sin interrumpir argumentos.\n• Reencuadra la deuda como solución.\n• Fija montos y fechas específicas sin titubeos.', flags: '• Reactividad defensiva o levantar la voz.\n• Aceptar reprogramaciones sin justificación.\n• Trato agresivo o evasivo.', star: 'Cuéntame sobre una llamada donde el deudor se negaba rotundamente a pagar. ¿Qué estrategia utilizaste y cuál fue el compromiso alcanzado?' },
+      { id: uid(), created_at: now, name: 'Regulación Emocional & Resiliencia', tag: 'Autocontrol / Resiliencia', definition: 'Habilidad para autorregular las propias emociones frente a la hostilidad, rechazo reiterado o trabajo bajo presión extrema, conservando un ritmo productivo continuo.', positive: '• Despersonaliza insultos o quejas.\n• Retoma la siguiente llamada sin pausas injustificadas.\n• Neutralidad emocional y templanza.', flags: '• Quejarse reiteradamente con compañeros.\n• Pausas prolongadas tras una mala llamada.\n• Tono sarcástico o desgano audible.', star: 'Descríbeme una jornada donde tras 40 llamadas consecutivas recibiste negativas hostiles. ¿Qué hiciste internamente para culminar el día con productividad?' },
+    ],
+    dynamics: [
+      { id: uid(), created_at: now, title: 'El Deudor en Quiebra Aparente', code: 'AC-COB-01 · Individual / Dupla', duration: '20 min (5 min llamada + 2 min autocrítica)', profile: 'Cobranza Telefónica / Campo', goal: 'Evaluar negociación bajo presión, manejo de la objeción de incapacidad de pago y capacidad de cierre con compromiso fechado.', steps: '1. El candidato revisa el estado de cuenta moroso en 2 min.\n2. Roleplay espalda con espalda emulando llamada real durante 5 min.\n3. El evaluador interpreta a un moroso hostil desempleado.\n4. Autocrítica guiada: ¿Qué harías diferente?', pass_rubric: 'Mantiene la calma, valida la dificultad pero resalta la campaña de descuento y concreta número de cuenta y fecha exacta sin dudar.', fail_rubric: "Discute con el deudor, se queda en silencio más de 5 segundos o concluye con promesas vagas ('avíseme cuando pueda')." },
+      { id: uid(), created_at: now, title: 'El Comité de Asignación de Cartera en Crisis', code: 'AC-GRP-02 · Grupal', duration: '25 min (5 min análisis + 15 min debate)', profile: 'Supervisores / Analistas / Cobranza Senior', goal: 'Evaluar trabajo en equipo, liderazgo emergente, defensa de argumentos numéricos y capacidad de consenso bajo tiempo límite.', steps: '1. Cada postulante recibe el expediente de un cliente con alta mora.\n2. El grupo debe debatir y consensuar en 15 minutos cuáles 3 clientes visitar hoy.\n3. Sustentación final del vocero elegido ante el comité evaluador.', pass_rubric: 'Propone criterios objetivos de recupero, escucha y sintetiza las opiniones de otros y lidera hacia el acuerdo grupal.', fail_rubric: 'Monopoliza la conversación de forma impositiva o se aísla por completo del debate grupal sin aportar ideas.' },
+    ],
+    templates: [
+      { id: uid(), created_at: now, title: 'Ficha de Postulación & Datos del Candidato', category: 'Llenado del Postulante', scope: 'Todos los Procesos (Masivos y Mandos Medios)', description: 'Formato inicial de registro obligatorio que completa el postulante antes de pasar a la fase de entrevistas.', fields: '1. Datos Generales: Nombres y apellidos, DNI, Fecha de nacimiento, Dirección y Distrito.\n2. Disponibilidad: Horario disponible (Turnos rotativos / L-V), Modalidad aceptada.\n3. Condiciones Económicas: Pretensión salarial bruta/neta, cargas familiares.\n4. Declaración Jurada: Afirmación de no tener antecedentes policiales ni judiciales e idoneidad de datos.' },
+      { id: uid(), created_at: now, title: 'Formato de Verificación de Referencias Laborales', category: 'Referencias Laborales', scope: 'Perfiles de Cobranza, Jefaturas y Analistas', description: 'Plantilla estructurada para llamada o registro de testimonio en video con jefes directos anteriores.', fields: '1. Datos de la Empresa y Evaluado: Razón social, cargo desempeñado, periodo de trabajo.\n2. Confirmación de Funciones: ¿Manejó metas numéricas o cartera morosa?\n3. Calificación Conductual (1 al 5): Puntualidad, honestidad, autocontrol bajo presión.\n4. Motivo de Salida: ¿Renuncia voluntaria o término de contrato?\n5. Cierre: ¿Volvería a contratarlo en su equipo? (Sí / No y por qué).' },
+      { id: uid(), created_at: now, title: 'Ficha de Entrevista por Competencias (Guía STAR)', category: 'Evaluación STAR', scope: 'Asesores de Cobranza y Ventas B2B', description: 'Formato del evaluador para anotar evidencia conductual durante la entrevista individual.', fields: '• Situación: Descripción del contexto difícil o de alta fricción.\n• Tarea: Objetivo exacto o cuota exigida al candidato.\n• Acción: Respuestas verbales y estrategias de negociación aplicadas.\n• Resultado: Logro cuantitativo y aprendizaje conductual.\n• Veredicto: Calificación por competencia (Sobresaliente / Aceptable / No Apto).' },
+    ],
+    documents: [],
+    activity_log: [],
+    settings: [
+      { key: 'consultant_name', value: 'Adriana Olivos' },
+      { key: 'candidate_phases', value: DEFAULT_PHASES },
+      { key: 'process_stages', value: DEFAULT_STAGES },
+      { key: 'stale_candidate_days', value: 7 },
+      { key: 'stale_process_days', value: 14 },
+    ],
+    profiles: [
+      { id: 'demo-admin', email: 'adriana@demo.local', full_name: 'Adriana Olivos', role: 'admin', created_at: now },
+      { id: 'demo-editor', email: 'asistente@demo.local', full_name: 'Asistente (ejemplo)', role: 'editor', created_at: now },
+      { id: 'demo-lector', email: 'jefe@demo.local', full_name: 'Jefe (ejemplo)', role: 'lector', created_at: now },
+    ],
+  };
+}
+function demoSetting(k) { return (DEMO.settings.find(s => s.key === k) || {}).value; }
+
+// Funciones públicas simuladas en modo demo (equivalentes a las del SQL)
+const DemoRPC = {
+  get_public_process({ p_token }) {
+    const p = DEMO.processes.find(x => x.apply_token === p_token && x.apply_enabled); if (!p) return null;
+    return { client: p.show_client_public ? p.client : null, job_title: p.job_title, location: p.location, modality: p.modality, schedule: p.schedule, description: p.description, requirements: p.requirements, consultant: demoSetting('consultant_name') };
+  },
+  submit_application(a) {
+    const p = DEMO.processes.find(x => x.apply_token === a.p_token && x.apply_enabled); if (!p) throw new Error('Convocatoria no disponible');
+    let c = a.p_dni ? DEMO.candidates.find(x => x.process_id === p.id && x.dni === a.p_dni.trim()) : null;
+    const now = nowISO();
+    if (!c) {
+      c = { ...CAND_DEFAULTS, id: uid(), process_id: p.id, client: p.client, job_title: p.job_title, name: a.p_name.trim(), dni: (a.p_dni || '').trim(), birthdate: a.p_birthdate, email: a.p_email, phone: a.p_phone, linkedin: a.p_linkedin, salary_expectation: a.p_salary, applicant_message: a.p_message, source: 'formulario', last_moved_at: now, created_at: now, updated_at: now };
+      DEMO.candidates.push(c);
+      DEMO.activity_log.unshift({ id: uid(), entity_type: 'candidate', entity_id: c.id, entity_label: c.name, action: 'Postulación', detail: 'Vía formulario web · ' + p.job_title, user_email: 'Formulario web', created_at: now });
+    }
+    (a.p_files || []).forEach(f => DEMO.documents.push({ id: uid(), owner_type: 'candidate', owner_id: c.id, name: f.name, path: f.path, size: f.size, mime: f.mime, uploaded_by: 'Postulante', created_at: now }));
+    demoSave(); return c.id;
+  },
+  get_client_view({ p_token }) {
+    const p = DEMO.processes.find(x => x.client_token === p_token && x.client_view_enabled); if (!p) return null;
+    const cs = DEMO.candidates.filter(c => c.process_id === p.id);
+    const funnel = {}; cs.filter(c => c.status === 'activo').forEach(c => funnel[c.phase] = (funnel[c.phase] || 0) + 1);
+    return {
+      client: p.client, job_title: p.job_title, stage: p.stage, brief_date: p.brief_date,
+      stages: demoSetting('process_stages'), phases: demoSetting('candidate_phases'), consultant: demoSetting('consultant_name'),
+      funnel: Object.entries(funnel).map(([ph, n]) => ({ phase: +ph, n })),
+      hired: cs.filter(c => c.status === 'contratado').length,
+      shortlist: cs.filter(c => c.client_visible && c.status !== 'descartado').sort((a, b) => b.phase - a.phase).map(c => ({ name: c.name, phase: c.phase, status: c.status, rating: c.report_rating, updated: c.last_moved_at })),
+    };
+  },
+};
+
+// ============================ CAPA DE DATOS ============================
+const api = {
+  async list(t) {
+    if (MODE === 'demo') return JSON.parse(JSON.stringify(DEMO[t] || []));
+    const out = [], size = 1000;
+    for (let from = 0; ; from += size) {
+      let q = sb.from(t).select('*');
+      if (t === 'activity_log') q = q.order('created_at', { ascending: false }).limit(500);
+      else { if (t !== 'settings') q = q.order('created_at', { ascending: true }); q = q.range(from, from + size - 1); }
+      const { data, error } = await q; if (error) throw error;
+      out.push(...data);
+      if (t === 'activity_log' || data.length < size) break;
+    }
+    return out;
+  },
+  async insert(t, rows) {
+    const arr = Array.isArray(rows) ? rows : [rows];
+    if (MODE === 'demo') {
+      const now = nowISO();
+      const ins = arr.map(r => ({
+        id: uid(), created_at: now,
+        ...(t === 'processes' ? { apply_token: uid(), client_token: uid(), updated_at: now, stage_changed_at: now, stage: 1, vacancies_count: 1 } : {}),
+        ...(t === 'candidates' ? { ...CAND_DEFAULTS, last_moved_at: now, updated_at: now } : {}),
+        ...r,
+      }));
+      if (t === 'activity_log') DEMO[t].unshift(...ins); else DEMO[t].push(...ins);
+      demoSave(); return JSON.parse(JSON.stringify(ins));
+    }
+    const { data, error } = await sb.from(t).insert(arr).select(); if (error) throw error; return data;
+  },
+  async update(t, id, patch) {
+    if (MODE === 'demo') {
+      const row = DEMO[t].find(r => r.id === id); if (!row) throw new Error('Registro no encontrado');
+      Object.assign(row, patch); if ('updated_at' in row) row.updated_at = nowISO(); demoSave(); return JSON.parse(JSON.stringify(row));
+    }
+    if (['processes', 'candidates'].includes(t)) patch = { ...patch, updated_at: nowISO() };
+    const { data, error } = await sb.from(t).update(patch).eq('id', id).select(); if (error) throw error;
+    if (!data || !data.length) throw new Error('No tienes permiso para modificar este registro.');
+    return data[0];
+  },
+  async remove(t, id) {
+    if (MODE === 'demo') { DEMO[t] = DEMO[t].filter(r => r.id !== id); demoSave(); return; }
+    const { error } = await sb.from(t).delete().eq('id', id); if (error) throw error;
+  },
+  async removeMany(t, ids) {
+    if (!ids.length) return;
+    if (MODE === 'demo') { const s = new Set(ids); DEMO[t] = DEMO[t].filter(r => !s.has(r.id)); demoSave(); return; }
+    for (let i = 0; i < ids.length; i += 100) { const { error } = await sb.from(t).delete().in('id', ids.slice(i, i + 100)); if (error) throw error; }
+  },
+  async upsert(t, rows, onConflict = 'id', ignoreDuplicates = false) {
+    if (MODE === 'demo') {
+      rows.forEach(r => { const i = DEMO[t].findIndex(x => x[onConflict] === r[onConflict]); if (i >= 0) { if (!ignoreDuplicates) DEMO[t][i] = r; } else DEMO[t].push(r); });
+      demoSave(); return;
+    }
+    for (let i = 0; i < rows.length; i += 200) {
+      const { error } = await sb.from(t).upsert(rows.slice(i, i + 200), { onConflict, ignoreDuplicates }); if (error) throw error;
+    }
+  },
+  async setSetting(key, value) { await api.upsert('settings', [{ key, value }], 'key'); },
+  async log(entity_type, entity_id, entity_label, action, detail = '') {
+    try {
+      const row = { entity_type, entity_id, entity_label, action, detail };
+      if (MODE === 'demo') row.user_email = S.profile?.email || 'demo';
+      const [ins] = await api.insert('activity_log', [row]);
+      if (ins) S.activity_log.unshift(ins);
+    } catch (e) { console.warn('No se pudo registrar el historial', e); }
+  },
+  async upload(path, file) {
+    if (file.size > MAX_FILE) throw new Error(`${file.name}: supera el máximo de 10 MB`);
+    if (MODE === 'demo') {
+      if (file.size > 1.5 * 1024 * 1024) throw new Error(`${file.name}: en modo demo solo se aceptan archivos de hasta 1,5 MB (con Supabase el límite es 10 MB).`);
+      const dataUrl = await readAsDataURL(file); const f = demoFiles(); f[path] = dataUrl;
+      try { localStorage.setItem(DEMO_FILES, JSON.stringify(f)); } catch (e) { throw new Error('Sin espacio en el navegador (modo demo).'); }
+      return path;
+    }
+    const { error } = await sb.storage.from(BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
+    if (error) throw error; return path;
+  },
+  async fileUrl(path, downloadName) {
+    if (MODE === 'demo') {
+      const d = demoFiles()[path]; if (!d) throw new Error('Archivo no encontrado');
+      const blob = await (await fetch(d)).blob(); return URL.createObjectURL(blob);
+    }
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 600, downloadName ? { download: downloadName } : undefined);
+    if (error) throw error; return data.signedUrl;
+  },
+  async removeFile(path) {
+    if (MODE === 'demo') { const f = demoFiles(); delete f[path]; localStorage.setItem(DEMO_FILES, JSON.stringify(f)); return; }
+    await sb.storage.from(BUCKET).remove([path]);
+  },
+  async rpc(name, params) {
+    if (MODE === 'demo') return DemoRPC[name](params);
+    const { data, error } = await sb.rpc(name, params); if (error) throw error; return data;
+  },
+};
+
+// ============================ ESTADO ============================
+const S = { profile: null, users: [], settings: {}, tab: 'procesos', cf: { checklist: false, cul: false, ready: false, stale: false }, started: false };
+TABLES.forEach(t => S[t] = []);
+
+const role = () => S.profile?.role;
+const isAdmin = () => role() === 'admin';
+const canEdit = () => ['admin', 'editor'].includes(role());
+const phases = () => (Array.isArray(S.settings.candidate_phases) && S.settings.candidate_phases.length === 7) ? S.settings.candidate_phases : DEFAULT_PHASES;
+const stages = () => (Array.isArray(S.settings.process_stages) && S.settings.process_stages.length === 7) ? S.settings.process_stages : DEFAULT_STAGES;
+const staleCandDays = () => Number(S.settings.stale_candidate_days) || 7;
+const staleProcDays = () => Number(S.settings.stale_process_days) || 14;
+const consultant = () => S.settings.consultant_name || 'Adriana Olivos';
+const procById = (id) => S.processes.find(p => p.id === id);
+const candById = (id) => S.candidates.find(c => c.id === id);
+function candLabel(c) { const p = c.process_id ? procById(c.process_id) : null; return { client: p ? p.client : (c.client || ''), job: p ? p.job_title : (c.job_title || ''), proc: p }; }
+const checkCount = c => [c.check_psych, c.check_biocv, c.check_videoref, c.check_callref].filter(Boolean).length;
+const checklistDone = c => checkCount(c) === 4;
+const culOk = c => c.cul === 'Sin antecedentes ✓';
+const readyForReport = c => c.status === 'activo' && checklistDone(c) && culOk(c) && (c.report_rating || 'Pendiente') === 'Pendiente';
+const isCandStale = c => c.status === 'activo' && daysSince(c.last_moved_at || c.created_at) > staleCandDays();
+const isProcStale = p => (p.stage || 1) < 7 && daysSince(p.stage_changed_at || p.created_at) > staleProcDays();
+function procStats(p) {
+  const cs = S.candidates.filter(c => c.process_id === p.id);
+  return { total: cs.length, active: cs.filter(c => c.status === 'activo').length, hired: cs.filter(c => c.status === 'contratado').length, terna: cs.filter(c => c.status === 'activo' && c.phase >= 6).length };
+}
+function upsertLocal(t, row) { if (!row) return; const i = S[t].findIndex(r => r.id === row.id); if (i >= 0) S[t][i] = row; else S[t].push(row); }
+function removeLocal(t, id) { S[t] = S[t].filter(r => r.id !== id); }
+
+async function refresh(t) {
+  if (t === 'billing' && !isAdmin()) { S.billing = []; return; }
+  if (t === 'profiles') {
+    if (!isAdmin()) return;
+    S.users = MODE === 'demo' ? JSON.parse(JSON.stringify(DEMO.profiles || [])) : await api.list('profiles');
+    return;
+  }
+  const rows = await api.list(t);
+  if (t === 'settings') S.settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
+  else S[t] = rows;
+}
+async function loadAll() {
+  await Promise.all([...TABLES, 'profiles'].map(t => refresh(t).catch(e => { console.error(t, e); toast(`Error al cargar ${t}: ${e.message}`, 'error'); })));
+}
+
+// ============================ NAVEGACIÓN ============================
+function applyRoleClasses() {
+  document.body.classList.toggle('ro', !canEdit());
+  document.body.classList.toggle('is-admin', isAdmin());
+  $('user-email').textContent = S.profile?.full_name || S.profile?.email || '';
+  $('user-role').textContent = ROLE_LABEL[role()] || '';
+  $('brand-name').textContent = consultant();
+}
+function renderNav() {
+  const alerts = S.candidates.filter(isCandStale).length + S.processes.filter(isProcStale).length;
+  $('nav-inner').innerHTML = TABS.filter(t => !t.admin || isAdmin()).map(t => `
+    <button onclick="switchTab('${t.id}')" class="tab-btn ${S.tab === t.id ? 'active' : ''}">
+      <i class="ph ph-${t.icon} text-base"></i><span>${t.label}</span>
+      ${t.id === 'metricas' && alerts ? `<span class="chip bg-amber-100 text-amber-800" title="Alertas de procesos o candidatos sin movimiento">${alerts}</span>` : ''}
+    </button>`).join('');
+}
+function switchTab(id) {
+  const t = TABS.find(x => x.id === id);
+  if (!t || (t.admin && !isAdmin())) id = 'procesos';
+  S.tab = id; try { localStorage.setItem('th_tab', id); } catch (e) { }
+  renderAll(); window.scrollTo(0, 0);
+}
+function renderAll() {
+  applyRoleClasses(); renderNav();
+  TABS.forEach(t => $('sec-' + t.id).classList.toggle('hidden', t.id !== S.tab));
+  const map = { procesos: renderProcesses, candidatos: renderCandidates, expedientes: renderExpedientes, metricas: renderMetrics, finanzas: renderFinanzas, competencias: renderCompetencias, assessment: renderAssessment, plantillas: renderPlantillas, admin: renderAdmin };
+  try { (map[S.tab] || renderProcesses)(); } catch (e) { err(e); }
+}
+function shell(secId, html) { const s = $(secId); if (!s.dataset.built) { s.innerHTML = html; s.dataset.built = '1'; } return s; }
+function sectionHeader(icon, title, desc, actions = '') {
+  return `<div class="panel p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div><h2 class="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2"><i class="ph-bold ph-${icon} text-sky-600"></i> ${title}</h2>
+    <p class="text-xs text-slate-500">${desc}</p></div><div class="flex flex-wrap gap-2">${actions}</div></div>`;
+}
+
+// Drag & drop genérico de los tableros
+function dragStart(e) {
+  if (!canEdit()) { e.preventDefault(); return; }
+  const el = e.currentTarget; e.dataTransfer.setData('text/plain', el.dataset.kind + ':' + el.dataset.id);
+  e.dataTransfer.effectAllowed = 'move'; el.classList.add('card-dragging');
+}
+function dragEnd(e) { e.currentTarget.classList.remove('card-dragging'); }
+function dragOver(e) { if (!canEdit()) return; e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function dropCard(e) {
+  e.preventDefault(); const zone = e.currentTarget; zone.classList.remove('drag-over');
+  const [kind, id] = (e.dataTransfer.getData('text/plain') || '').split(':');
+  if (!id || kind !== zone.dataset.kind) return;
+  const n = +zone.dataset.n;
+  if (kind === 'p') moveProcess(id, n); else moveCandidate(id, n);
+}
+function kanbanCol(kind, n, name, count, cardsHTML, tone = 'sky') {
+  const tones = { sky: ['bg-slate-100 border-slate-200', 'bg-sky-700'], emerald: ['bg-emerald-50/70 border-emerald-200', 'bg-emerald-700'], purple: ['bg-purple-50/70 border-purple-200', 'bg-purple-700'], light: ['bg-sky-50/70 border-sky-200', 'bg-sky-700'] };
+  const [bg, num] = tones[tone] || tones.sky;
+  return `<div class="kanban-col ${bg} rounded-xl p-3 border flex flex-col">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-200 mb-2.5 gap-2">
+      <span class="text-[11px] font-bold uppercase tracking-wide text-slate-700 flex items-center gap-1.5 min-w-0">
+        <span class="w-5 h-5 shrink-0 rounded ${num} text-white flex items-center justify-center text-[10px]">${n}</span><span class="truncate" title="${esc(name)}">${esc(name)}</span></span>
+      <span class="text-[11px] font-bold bg-white text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">${count}</span>
+    </div>
+    <div class="min-h-[420px] space-y-2.5 flex-1" data-kind="${kind}" data-n="${n}" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropCard(event)">
+      ${cardsHTML || '<p class="text-[11px] text-slate-400 text-center pt-6">Sin registros</p>'}
+    </div></div>`;
+}
+
+// ============================ DOCUMENTOS ============================
+const docsFor = (type, id) => S.documents.filter(d => d.owner_type === type && d.owner_id === id);
+function docIcon(d) { const n = norm(d.name); return n.endsWith('.pdf') ? 'ph-file-pdf text-rose-600' : /\.docx?$/.test(n) ? 'ph-file-doc text-sky-700' : /\.(xlsx?|csv)$/.test(n) ? 'ph-file-xls text-emerald-700' : /\.(png|jpe?g|gif|webp)$/.test(n) ? 'ph-file-image text-purple-600' : 'ph-file text-slate-500'; }
+function docListHTML(type, id) {
+  const docs = docsFor(type, id);
+  if (!docs.length) return '<p class="text-[11px] text-slate-400 italic">Sin archivos adjuntos.</p>';
+  return docs.map(d => `<div class="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs">
+      <span class="flex items-center gap-1.5 text-slate-700 font-medium min-w-0"><i class="ph ${docIcon(d)} text-base shrink-0"></i><span class="truncate" title="${esc(d.name)}">${esc(d.name)}</span></span>
+      <span class="flex items-center gap-2 shrink-0 text-[10px] text-slate-400">${fileSize(d.size)} · ${fmtDate(d.created_at)}
+        <button type="button" onclick="openDoc('${d.id}')" class="text-sky-700 link-btn" title="Ver"><i class="ph ph-eye"></i> Ver</button>
+        <button type="button" onclick="openDoc('${d.id}', true)" class="text-slate-600 link-btn" title="Descargar"><i class="ph ph-download-simple"></i></button>
+        <button type="button" onclick="deleteDoc('${d.id}')" class="edit-only text-rose-500 hover:text-rose-700" title="Eliminar"><i class="ph ph-trash"></i></button>
+      </span></div>`).join('');
+}
+async function uploadDocs(owner_type, owner_id, files) {
+  let ok = 0;
+  for (const f of files) {
+    try {
+      const path = `${owner_type}/${owner_id}/${Date.now()}_${safeName(f.name)}`;
+      await api.upload(path, f);
+      const [row] = await api.insert('documents', [{ owner_type, owner_id, name: f.name, path, size: f.size, mime: f.type, uploaded_by: S.profile?.email }]);
+      upsertLocal('documents', row); ok++;
+    } catch (e) { err(e); }
+  }
+  if (ok) toast(`${ok} archivo(s) guardado(s)`);
+  return ok;
+}
+async function uploadFromInput(input, type, id) {
+  const files = [...input.files]; input.value = ''; if (!files.length) return;
+  await uploadDocs(type, id, files); renderAll();
+  document.querySelectorAll(`[data-docs="${type}:${id}"]`).forEach(el => el.innerHTML = docListHTML(type, id));
+}
+async function openDoc(id, download = false) {
+  const d = S.documents.find(x => x.id === id); if (!d) return;
+  const w = download ? null : window.open('', '_blank');
+  try {
+    const url = await api.fileUrl(d.path, download ? d.name : null);
+    if (download) { const a = document.createElement('a'); a.href = url; a.download = d.name; document.body.appendChild(a); a.click(); a.remove(); }
+    else if (w) w.location = url; else window.open(url, '_blank');
+  } catch (e) { if (w) w.close(); err(e); }
+}
+async function deleteDoc(id) {
+  const d = S.documents.find(x => x.id === id); if (!d || !confirm(`¿Eliminar el archivo "${d.name}"?`)) return;
+  try {
+    await api.removeFile(d.path).catch(() => { });
+    await api.remove('documents', id); removeLocal('documents', id);
+    document.querySelectorAll(`[data-docs="${d.owner_type}:${d.owner_id}"]`).forEach(el => el.innerHTML = docListHTML(d.owner_type, d.owner_id));
+    renderAll(); toast('Archivo eliminado');
+  } catch (e) { err(e); }
+}
+async function deleteDocsOf(type, id) {
+  for (const d of docsFor(type, id)) { await api.removeFile(d.path).catch(() => { }); await api.remove('documents', d.id).catch(() => { }); removeLocal('documents', d.id); }
+}
+function historyHTML(entityId, limit = 15) {
+  const rows = S.activity_log.filter(l => l.entity_id === entityId).slice(0, limit);
+  if (!rows.length) return '<p class="text-[11px] text-slate-400 italic">Sin movimientos registrados.</p>';
+  return `<ul class="space-y-1">${rows.map(l => `<li class="flex gap-2 text-[11px]"><span class="text-slate-400 shrink-0 w-24">${fmtDateTime(l.created_at)}</span><span><strong class="text-slate-700">${esc(l.action)}</strong>${l.detail ? ' · ' + esc(l.detail) : ''} <span class="text-slate-400">— ${esc(l.user_email || '')}</span></span></li>`).join('')}</ul>`;
+}
+
+// ===================== PROCESOS B2B (KANBAN) =====================
+function renderProcesses() {
+  shell('sec-procesos', `
+    ${sectionHeader('briefcase', 'Tablero de Procesos Comerciales', 'Estado de cada búsqueda con el cliente. Arrastra las tarjetas para cambiar de etapa.',
+      `<div class="relative"><i class="ph ph-magnifying-glass absolute left-2.5 top-2 text-slate-400"></i><input id="proc-search" oninput="renderProcBoard()" placeholder="Buscar cliente o puesto…" class="inp pl-8 w-56"></div>
+       <button onclick="openProcessModal()" class="edit-only btn btn-primary"><i class="ph-bold ph-plus"></i> Nuevo proceso</button>`)}
+    <div class="overflow-x-auto pb-4 custom-scrollbar"><div id="proc-board" class="flex gap-4 min-w-max items-stretch"></div></div>`);
+  renderProcBoard();
+}
+function renderProcBoard() {
+  const q = norm($('proc-search')?.value || '');
+  const st = stages();
+  $('proc-board').innerHTML = st.map((name, i) => {
+    const n = i + 1;
+    const items = S.processes.filter(p => (p.stage || 1) === n && (!q || norm(`${p.client} ${p.job_title}`).includes(q)));
+    return kanbanCol('p', n, name, items.length, items.map(procCard).join(''), n === 7 ? 'emerald' : 'sky');
+  }).join('');
+}
+function procCard(p) {
+  const s = procStats(p), d = daysSince(p.stage_changed_at || p.created_at), stale = isProcStale(p);
+  return `<div class="card" ${canEdit() ? 'draggable="true" style="cursor:grab"' : ''} data-kind="p" data-id="${p.id}" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+    <div class="flex items-center justify-between gap-2 text-[11px]">
+      <span class="font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded truncate">${esc(p.client)}</span>
+      <span class="${stale ? 'text-amber-700 font-bold' : 'text-slate-400'} text-[10px] shrink-0" title="Días en esta etapa${stale ? ' — sin movimiento' : ''}"><i class="ph${stale ? '-bold ph-warning' : ' ph-clock'}"></i> ${d}d</span>
+    </div>
+    <h4 class="text-xs font-bold text-slate-900 leading-snug">${esc(p.job_title)}</h4>
+    <div class="grid grid-cols-3 gap-1 text-center text-[10px]">
+      <div class="bg-slate-50 rounded-lg py-1 border border-slate-100"><p class="font-bold text-slate-800 text-xs">${s.active}</p><p class="text-slate-500">activos</p></div>
+      <div class="bg-slate-50 rounded-lg py-1 border border-slate-100"><p class="font-bold text-slate-800 text-xs">${s.terna}</p><p class="text-slate-500">en terna</p></div>
+      <div class="bg-emerald-50 rounded-lg py-1 border border-emerald-100"><p class="font-bold text-emerald-800 text-xs">${s.hired}/${p.vacancies_count || 1}</p><p class="text-emerald-700">contratados</p></div>
+    </div>
+    <div class="flex flex-wrap gap-1">
+      ${p.apply_enabled ? '<span class="chip bg-sky-50 text-sky-700 border border-sky-200"><i class="ph ph-link"></i> Formulario activo</span>' : ''}
+      ${p.client_view_enabled ? '<span class="chip bg-purple-50 text-purple-700 border border-purple-200"><i class="ph ph-eye"></i> Vista cliente</span>' : ''}
+    </div>
+    <div class="flex justify-between items-center text-[10px] pt-1.5 border-t border-slate-100">
+      <div class="flex gap-2.5">
+        <button onclick="openProcessModal('${p.id}')" class="link-btn text-amber-700"><i class="ph ph-pencil-simple"></i><span class="edit-only">Editar</span><span class="${canEdit() ? 'hidden' : ''}">Ver</span></button>
+        <button onclick="goExpediente('${p.id}')" class="link-btn text-sky-700"><i class="ph ph-folder-open"></i> Expediente</button>
+        <button onclick="goCandidatesOf('${p.id}')" class="link-btn text-slate-600"><i class="ph ph-users"></i> Candidatos</button>
+      </div>
+      <button onclick="deleteProcess('${p.id}')" class="edit-only text-rose-500 hover:text-rose-700" title="Eliminar"><i class="ph ph-trash"></i></button>
+    </div></div>`;
+}
+async function moveProcess(id, n) {
+  const p = procById(id); if (!p || p.stage === n) return;
+  const old = p.stage || 1;
+  try {
+    const row = await api.update('processes', id, { stage: n, stage_changed_at: nowISO(), closed_at: n === 7 ? (p.closed_at || todayISO()) : null });
+    upsertLocal('processes', row);
+    await api.log('process', id, `${p.client} · ${p.job_title}`, 'Cambio de etapa', `${stages()[old - 1]} → ${stages()[n - 1]}`);
+    renderAll(); toast(`Proceso movido a "${stages()[n - 1]}"`);
+  } catch (e) { err(e); }
+}
+function goCandidatesOf(id) { S.candProcFilter = id; switchTab('candidatos'); }
+function goExpediente(id) {
+  S.expFocus = id; switchTab('expedientes');
+  setTimeout(() => { const el = $('exp-' + id); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); } }, 80);
+}
+
+const applyLink = p => `${baseURL()}?postular=${p.apply_token}`;
+const clientLink = p => `${baseURL()}?cliente=${p.client_token}`;
+function linkRow(label, url, enabled, icon) {
+  if (!enabled) return `<p class="text-[11px] text-slate-400"><i class="ph ph-${icon}"></i> ${label}: <em>desactivado</em></p>`;
+  return `<div><p class="text-[11px] font-semibold text-slate-700 mb-1"><i class="ph ph-${icon}"></i> ${label}</p>
+    <div class="flex gap-1.5"><input readonly value="${esc(url)}" class="inp font-mono text-[10px] bg-slate-50" onclick="this.select()">
+    <button type="button" onclick="copyText('${esc(url)}')" class="btn btn-ghost px-2" title="Copiar"><i class="ph ph-copy"></i></button>
+    <a href="${esc(url)}" target="_blank" class="btn btn-ghost px-2" title="Abrir"><i class="ph ph-arrow-square-out"></i></a></div></div>`;
+}
+
+function openProcessModal(id) {
+  const p = id ? procById(id) : null, ro = !canEdit();
+  const bill = p ? S.billing.find(b => b.process_id === p.id) : null;
+  const body = `<form id="f-proc" onsubmit="event.preventDefault(); saveProcess('${p?.id || ''}')"><fieldset ${ro ? 'disabled' : ''} class="space-y-4">
+    <div class="grid md:grid-cols-2 gap-3">
+      ${fInput('p-client', 'Empresa cliente', p?.client, { req: 1, ph: 'Ej. Finanty S.A.' })}
+      ${fInput('p-job', 'Puesto solicitado', p?.job_title, { req: 1, ph: 'Ej. Gerente de Finanzas' })}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${fSelect('p-stage', 'Etapa', stages().map((s, i) => [i + 1, `${i + 1}. ${s}`]), p?.stage || 1)}
+      ${fInput('p-brief', 'Fecha de brief (inicio)', p?.brief_date || todayISO(), { type: 'date', req: 1 })}
+      ${fInput('p-vac', 'N.º de vacantes', p?.vacancies_count || 1, { type: 'number', attrs: 'min="1"' })}
+      ${fInput('p-salary', 'Remuneración', p?.salary, { ph: 'S/ 8,000 bruto' })}
+    </div>
+    <div class="grid md:grid-cols-4 gap-3">
+      ${fInput('p-contact', 'Contacto del cliente', p?.contact_name, { ph: 'Nombre y cargo' })}
+      ${fInput('p-cemail', 'Correo del contacto', p?.contact_email, { type: 'email' })}
+      ${fInput('p-schedule', 'Horario', p?.schedule, { ph: 'L-V 8:30 a 18:00' })}
+      ${fInput('p-location', 'Ubicación / Sede', p?.location, { ph: 'San Isidro' })}
+    </div>
+    <div class="box bg-slate-50 border-slate-200">
+      <span class="box-title text-slate-800"><i class="ph ph-file-text text-sky-700"></i> Condiciones de contratación</span>
+      <div class="grid md:grid-cols-4 gap-2.5">
+        ${fSelect('p-modality', 'Modalidad', MODALITY_OPTS, p?.modality || MODALITY_OPTS[0])}
+        ${fSelect('p-contract', 'Tipo de contrato', CONTRACT_OPTS, p?.contract_type || CONTRACT_OPTS[0])}
+        ${fSelect('p-payroll', 'Tipo de planilla', PAYROLL_OPTS, p?.payroll_type || PAYROLL_OPTS[0])}
+        ${fSelect('p-freq', 'Frecuencia de pago', FREQ_OPTS, p?.payment_freq || FREQ_OPTS[0])}
+      </div>
+    </div>
+    ${fText('p-desc', 'Funciones y misión del puesto', p?.description, { rows: 3 })}
+    ${fText('p-req', 'Requisitos excluyentes', p?.requirements, { rows: 2 })}
+    <div class="box bg-sky-50/60 border-sky-100">
+      <span class="box-title text-sky-900"><i class="ph ph-share-network text-sky-700"></i> Enlaces públicos</span>
+      <div class="grid md:grid-cols-3 gap-2">
+        ${fCheck('p-apply', 'Formulario de postulación activo', p?.apply_enabled, { help: 'Los postulantes llenan su ficha y suben su CV; entran solos a la fase 1.' })}
+        ${fCheck('p-showclient', 'Mostrar nombre del cliente', p?.show_client_public, { help: 'Si está apagado, el formulario muestra la búsqueda como confidencial.' })}
+        ${fCheck('p-cview', 'Vista de seguimiento para el cliente', p?.client_view_enabled, { help: 'Enlace de solo lectura con el avance y la terna (sin DNI).' })}
+      </div>
+      ${p ? `<div class="grid md:grid-cols-2 gap-3 pt-1">${linkRow('Enlace del formulario', applyLink(p), p.apply_enabled, 'link')}${linkRow('Enlace para el cliente', clientLink(p), p.client_view_enabled, 'eye')}</div>`
+      : '<p class="text-[10px] text-sky-800">Los enlaces se generan al guardar el proceso.</p>'}
+    </div>
+    <div class="admin-only box bg-emerald-50 border-emerald-100">
+      <span class="box-title text-emerald-900"><i class="ph ph-currency-dollar"></i> Honorarios (solo visible para la administradora)</span>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${fInput('p-cost', 'Costo total del servicio (S/)', bill?.cost ?? '', { type: 'number', attrs: 'min="0" step="0.01"', ph: '6500' })}
+        ${fInput('p-pct', '% comisión', bill?.percent ?? 20, { type: 'number', attrs: 'min="0" max="100" step="0.1"' })}
+        ${fSelect('p-bstatus', 'Estado de cobro', [['Pendiente', 'Pendiente ⏳'], ['Pagado', 'Pagado ✓']], bill?.status || 'Pendiente')}
+        ${fInput('p-inv', 'N.º de factura / RxH', bill?.invoice_number)}
+      </div>
+    </div>
+    ${p ? `<details class="box bg-white border-slate-200"><summary class="cursor-pointer font-semibold text-slate-700">Historial del proceso</summary><div class="pt-2">${historyHTML(p.id)}</div></details>` : ''}
+  </fieldset></form>`;
+  openModal({
+    title: p ? `${esc(p.client)} · ${esc(p.job_title)}` : 'Nuevo requerimiento / proceso B2B',
+    subtitle: p ? `Creado el ${fmtDate(p.created_at)} · ${daysSince(p.brief_date)} días desde el brief` : 'Formaliza el requerimiento del cliente.',
+    size: 'max-w-3xl', body,
+    footer: `<button data-close class="btn btn-ghost">${ro ? 'Cerrar' : 'Cancelar'}</button>${ro ? '' : '<button type="submit" form="f-proc" class="btn btn-primary save-btn">Guardar proceso</button>'}`,
+  });
+}
+async function saveProcess(id) {
+  const p = id ? procById(id) : null;
+  const row = {
+    client: val('p-client'), job_title: val('p-job'), stage: +val('p-stage') || 1, brief_date: val('p-brief') || todayISO(),
+    vacancies_count: Math.max(1, parseInt(val('p-vac')) || 1), salary: val('p-salary'), contact_name: val('p-contact'), contact_email: val('p-cemail'),
+    schedule: val('p-schedule'), location: val('p-location'), modality: val('p-modality'), contract_type: val('p-contract'), payroll_type: val('p-payroll'),
+    payment_freq: val('p-freq'), description: val('p-desc'), requirements: val('p-req'),
+    apply_enabled: chk('p-apply'), show_client_public: chk('p-showclient'), client_view_enabled: chk('p-cview'),
+  };
+  if (!p || p.stage !== row.stage) { row.stage_changed_at = nowISO(); row.closed_at = row.stage === 7 ? (p?.closed_at || todayISO()) : null; }
+  await busy('.save-btn', async () => {
+    let saved;
+    if (p) {
+      saved = await api.update('processes', p.id, row);
+      await api.log('process', p.id, `${row.client} · ${row.job_title}`, p.stage !== row.stage ? 'Cambio de etapa' : 'Actualización', p.stage !== row.stage ? `${stages()[p.stage - 1]} → ${stages()[row.stage - 1]}` : 'Datos del proceso editados');
+    } else {
+      [saved] = await api.insert('processes', [row]);
+      await api.log('process', saved.id, `${row.client} · ${row.job_title}`, 'Creación', `Etapa: ${stages()[row.stage - 1]}`);
+    }
+    upsertLocal('processes', saved);
+    if (isAdmin()) {
+      const cost = parseFloat(val('p-cost')) || 0, status = val('p-bstatus');
+      const bill = S.billing.find(b => b.process_id === saved.id);
+      const bRow = { process_id: saved.id, client: row.client, service: row.job_title, contact: row.contact_name || null, cost, percent: parseFloat(val('p-pct')) || 0, status, invoice_number: val('p-inv') || null, paid_at: status === 'Pagado' ? (bill?.paid_at || todayISO()) : null };
+      if (bill) upsertLocal('billing', await api.update('billing', bill.id, bRow));
+      else if (cost > 0) { const [b] = await api.insert('billing', [bRow]); upsertLocal('billing', b); }
+    }
+    closeTopModal(); renderAll(); toast(p ? 'Proceso actualizado' : 'Proceso creado');
+    if (!p && (row.apply_enabled || row.client_view_enabled)) openProcessModal(saved.id); // muestra los enlaces generados
+  });
+}
+async function deleteProcess(id) {
+  const p = procById(id); if (!p) return;
+  const n = S.candidates.filter(c => c.process_id === id).length;
+  if (!confirm(`¿Eliminar el proceso "${p.job_title}" (${p.client})?\n\n${n ? `Sus ${n} candidato(s) se conservan, pero quedarán sin proceso asignado.\n` : ''}Los archivos del expediente se eliminarán.`)) return;
+  try {
+    await deleteDocsOf('process', id);
+    await api.remove('processes', id); removeLocal('processes', id);
+    if (MODE === 'demo') { DEMO.candidates.forEach(c => { if (c.process_id === id) c.process_id = null; }); DEMO.billing.forEach(b => { if (b.process_id === id) b.process_id = null; }); demoSave(); }
+    S.candidates.forEach(c => { if (c.process_id === id) c.process_id = null; });
+    S.billing.forEach(b => { if (b.process_id === id) b.process_id = null; });
+    await api.log('process', id, `${p.client} · ${p.job_title}`, 'Eliminación', 'Proceso eliminado');
+    renderAll(); toast('Proceso eliminado');
+  } catch (e) { err(e); }
+}
+
+// ===================== EXPEDIENTES & DOCUMENTOS =====================
+function renderExpedientes() {
+  shell('sec-expedientes', `
+    ${sectionHeader('folder-open', 'Expedientes Técnicos & Documentación', 'Perfil del puesto, condiciones, enlaces, documentos del cliente (MOF, organigrama) y candidatos de cada proceso.',
+      `<div class="relative"><i class="ph ph-magnifying-glass absolute left-2.5 top-2 text-slate-400"></i><input id="exp-search" oninput="renderExpList()" placeholder="Buscar…" class="inp pl-8 w-48"></div>
+       <select id="exp-status" onchange="renderExpList()" class="inp w-40"><option value="open">Procesos abiertos</option><option value="closed">Cerrados</option><option value="all">Todos</option></select>
+       <button onclick="openProcessModal()" class="edit-only btn btn-primary"><i class="ph-bold ph-plus"></i> Nuevo proceso</button>`)}
+    <div id="exp-list" class="space-y-4"></div>`);
+  if (S.expFocus) { const p = procById(S.expFocus); if (p && p.stage === 7) $('exp-status').value = 'all'; S.expFocus = null; }
+  renderExpList();
+}
+function renderExpList() {
+  const q = norm(val('exp-search')), st = val('exp-status') || 'open';
+  const list = S.processes.filter(p => (st === 'all' || (st === 'open' ? p.stage < 7 : p.stage === 7)) && (!q || norm(`${p.client} ${p.job_title}`).includes(q)))
+    .sort((a, b) => (a.stage === 7) - (b.stage === 7) || String(b.brief_date).localeCompare(String(a.brief_date)));
+  if (!list.length) { $('exp-list').innerHTML = '<div class="panel p-8 text-center text-slate-500 text-xs">No hay procesos para mostrar.</div>'; return; }
+  const ph = phases();
+  $('exp-list').innerHTML = list.map(p => {
+    const cs = S.candidates.filter(c => c.process_id === p.id).sort((a, b) => b.phase - a.phase);
+    return `<article id="exp-${p.id}" class="panel p-5 space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="chip bg-sky-100 text-sky-800 uppercase">${esc(p.client)}</span>
+            <span class="chip bg-slate-100 text-slate-700">Etapa ${p.stage}: ${esc(stages()[p.stage - 1])}</span>
+            <span class="text-[10px] text-slate-400">Brief: ${fmtDate(p.brief_date)} · ${p.stage === 7 ? 'cerrado ' + fmtDate(p.closed_at) : daysSince(p.brief_date) + ' días abierto'}</span>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 mt-1">${esc(p.job_title)}</h3>
+          ${p.contact_name || p.contact_email ? `<p class="text-[11px] text-slate-500"><i class="ph ph-user"></i> ${esc(p.contact_name || '')} ${p.contact_email ? `· <a class="text-sky-700 hover:underline" href="mailto:${esc(p.contact_email)}">${esc(p.contact_email)}</a>` : ''}</p>` : ''}
+        </div>
+        <button onclick="openProcessModal('${p.id}')" class="btn btn-warn"><i class="ph ph-pencil-simple"></i> <span class="edit-only">Editar proceso</span><span class="${canEdit() ? 'hidden' : ''}">Ver detalle</span></button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+        <div><span class="text-slate-400 block text-[10px]">Remuneración</span><strong>${esc(p.salary || '—')}</strong></div>
+        <div><span class="text-slate-400 block text-[10px]">Modalidad / Sede</span><strong>${esc(p.modality || '—')} · ${esc(p.location || '—')}</strong></div>
+        <div><span class="text-slate-400 block text-[10px]">Contrato</span><strong>${esc(p.contract_type || '—')}</strong></div>
+        <div><span class="text-slate-400 block text-[10px]">Planilla</span><strong>${esc(p.payroll_type || '—')}</strong></div>
+        <div><span class="text-slate-400 block text-[10px]">Horario / Pago</span><strong>${esc(p.schedule || '—')} · ${esc(p.payment_freq || '—')}</strong></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4 text-xs">
+        <div><span class="font-bold text-slate-700 text-[10px] uppercase">Funciones & misión</span><p class="text-slate-600 mt-1 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100 whitespace-pre-line">${esc(p.description || '—')}</p></div>
+        <div><span class="font-bold text-slate-700 text-[10px] uppercase">Requisitos excluyentes</span><p class="text-slate-600 mt-1 leading-relaxed bg-slate-50 p-2.5 rounded border border-slate-100 whitespace-pre-line">${esc(p.requirements || '—')}</p></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="box bg-slate-50 border-slate-200">
+          <div class="flex items-center justify-between">
+            <span class="box-title text-slate-800"><i class="ph ph-folder-open text-sky-700"></i> Documentación del cliente</span>
+            <label class="edit-only text-[11px] text-sky-700 hover:underline font-semibold cursor-pointer flex items-center gap-1"><i class="ph ph-plus-circle"></i> Adjuntar archivo
+              <input type="file" multiple class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg" onchange="uploadFromInput(this,'process','${p.id}')"></label>
+          </div>
+          <div class="space-y-1" data-docs="process:${p.id}">${docListHTML('process', p.id)}</div>
+        </div>
+        <div class="box bg-slate-50 border-slate-200">
+          <span class="box-title text-slate-800"><i class="ph ph-share-network text-sky-700"></i> Enlaces públicos</span>
+          ${linkRow('Formulario de postulación', applyLink(p), p.apply_enabled, 'link')}
+          ${linkRow('Vista de seguimiento del cliente', clientLink(p), p.client_view_enabled, 'eye')}
+        </div>
+      </div>
+      <div class="box bg-white border-slate-200">
+        <div class="flex items-center justify-between"><span class="box-title text-slate-800"><i class="ph ph-users text-sky-700"></i> Candidatos (${cs.length})</span>
+          <button onclick="goCandidatesOf('${p.id}')" class="text-[11px] text-sky-700 link-btn">Ver en tablero <i class="ph ph-arrow-right"></i></button></div>
+        ${cs.length ? `<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead class="text-slate-500 text-left"><tr><th class="py-1 pr-2">Nombre</th><th class="pr-2">Fase</th><th class="pr-2">Estado</th><th class="pr-2">Calificación</th><th>Terna cliente</th></tr></thead><tbody class="divide-y divide-slate-100">
+          ${cs.map(c => `<tr class="hover:bg-slate-50 cursor-pointer" onclick="openCandidateModal('${c.id}')"><td class="py-1.5 pr-2 font-semibold text-slate-800">${esc(c.name)}</td><td class="pr-2">${c.phase}. ${esc(ph[c.phase - 1])}</td><td class="pr-2">${statusChip(c)}</td><td class="pr-2">${ratingChip(c.report_rating)}</td><td>${c.client_visible ? '<i class="ph-bold ph-check text-emerald-600"></i>' : ''}</td></tr>`).join('')}
+          </tbody></table></div>` : '<p class="text-[11px] text-slate-400 italic">Aún no hay candidatos.</p>'}
+      </div>
+    </article>`;
+  }).join('');
+}
+
+// ===================== CANDIDATOS (KANBAN 7 FASES) =====================
+function statusChip(c) {
+  if (c.status === 'contratado') return `<span class="chip bg-emerald-100 text-emerald-800"><i class="ph-bold ph-seal-check"></i> Contratado ${c.hired_at ? fmtDate(c.hired_at) : ''}</span>`;
+  if (c.status === 'descartado') return `<span class="chip bg-rose-100 text-rose-700" title="${esc(c.discard_reason || '')}"><i class="ph-bold ph-x-circle"></i> Descartado</span>`;
+  return '<span class="chip bg-sky-50 text-sky-700">Activo</span>';
+}
+function ratingChip(r) {
+  r = r || 'Pendiente';
+  const t = { 'Apto': 'bg-emerald-100 text-emerald-800', 'Apto con observaciones': 'bg-amber-100 text-amber-800', 'No apto': 'bg-rose-100 text-rose-700', 'Pendiente': 'bg-slate-100 text-slate-500' }[r] || 'bg-slate-100 text-slate-600';
+  return `<span class="chip ${t}">${esc(r)}</span>`;
+}
+function valTone(v) {
+  v = v || 'Pendiente';
+  if (v.includes('✓') || v.startsWith('Apto')) return 'text-emerald-700';
+  if (/Descarte|Observado|No figura|No contesta/.test(v)) return 'text-rose-600';
+  return 'text-amber-700';
+}
+
+function renderCandidates() {
+  shell('sec-candidatos', `
+    <div class="panel p-4 space-y-3">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2 flex-1">
+          <div class="relative w-full sm:w-64"><i class="ph ph-magnifying-glass absolute left-2.5 top-2 text-slate-400"></i>
+            <input id="c-search" oninput="renderCandBoard()" placeholder="Buscar por nombre, DNI, cliente o puesto…" class="inp pl-8"></div>
+          <select id="c-proc" onchange="renderCandBoard()" class="inp w-full sm:w-64"></select>
+          <select id="c-status" onchange="renderCandBoard()" class="inp w-full sm:w-44">
+            <option value="vigentes">Activos + contratados</option><option value="activo">Solo activos</option>
+            <option value="contratado">Contratados</option><option value="descartado">Descartados</option><option value="todos">Todos</option></select>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="openCandidateModal()" class="edit-only btn btn-primary"><i class="ph-bold ph-plus"></i> Nuevo postulante</button>
+          <button onclick="openImportModal()" class="edit-only btn btn-ghost"><i class="ph ph-file-arrow-up"></i> Importar Excel / CSV</button>
+          <button onclick="exportExcel()" class="btn btn-green"><i class="ph-bold ph-microsoft-excel-logo"></i> Exportar Excel</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-[11px] font-semibold text-slate-500">Filtros rápidos:</span>
+        <button class="filter-chip" data-cf="checklist" onclick="toggleCF('checklist')"><i class="ph ph-list-checks"></i> Checklist completo (4/4)</button>
+        <button class="filter-chip" data-cf="cul" onclick="toggleCF('cul')"><i class="ph ph-shield-check"></i> CUL conforme</button>
+        <button class="filter-chip" data-cf="ready" onclick="toggleCF('ready')"><i class="ph ph-file-text"></i> Listos para informe psicolaboral</button>
+        <button class="filter-chip" data-cf="stale" onclick="toggleCF('stale')"><i class="ph ph-warning"></i> Sin movimiento</button>
+        <button onclick="clearCF()" class="text-[11px] text-slate-500 hover:underline">Limpiar</button>
+      </div>
+      <div id="c-alert"></div>
+    </div>
+    <div class="overflow-x-auto pb-4 custom-scrollbar"><div id="cand-board" class="flex gap-4 min-w-max items-stretch"></div></div>`);
+  // opciones de proceso (se actualizan siempre)
+  const sel = $('c-proc'); const cur = S.candProcFilter || sel.value || 'all'; S.candProcFilter = null;
+  sel.innerHTML = `<option value="all">Todos los procesos</option>` +
+    S.processes.map(p => `<option value="${p.id}">${esc(p.client)} · ${esc(p.job_title)}${p.stage === 7 ? ' (cerrado)' : ''}</option>`).join('') +
+    `<option value="none">Sin proceso asignado</option>`;
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
+  renderCandBoard();
+}
+function toggleCF(k) { S.cf[k] = !S.cf[k]; renderCandBoard(); }
+function clearCF() { Object.keys(S.cf).forEach(k => S.cf[k] = false); renderCandBoard(); }
+function candFiltered() {
+  const q = norm(val('c-search')), pr = val('c-proc') || 'all', st = val('c-status') || 'vigentes';
+  return S.candidates.filter(c => {
+    if (pr === 'none' ? c.process_id : (pr !== 'all' && c.process_id !== pr)) return false;
+    if (st === 'vigentes') { if (c.status === 'descartado') return false; } else if (st !== 'todos' && c.status !== st) return false;
+    if (q) { const { client, job } = candLabel(c); if (!norm(`${c.name} ${c.dni} ${client} ${job} ${c.email}`).includes(q)) return false; }
+    if (S.cf.checklist && !checklistDone(c)) return false;
+    if (S.cf.cul && !culOk(c)) return false;
+    if (S.cf.ready && !readyForReport(c)) return false;
+    if (S.cf.stale && !isCandStale(c)) return false;
+    return true;
+  });
+}
+function renderCandBoard() {
+  document.querySelectorAll('[data-cf]').forEach(b => b.setAttribute('aria-pressed', S.cf[b.dataset.cf] ? 'true' : 'false'));
+  const stale = S.candidates.filter(isCandStale).length;
+  $('c-alert').innerHTML = stale && !S.cf.stale ? `<div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2 text-[11px] flex items-center justify-between gap-2">
+      <span><i class="ph-bold ph-warning"></i> ${stale} candidato(s) activos llevan más de ${staleCandDays()} días sin cambiar de fase.</span>
+      <button onclick="toggleCF('stale')" class="font-bold hover:underline">Ver solo esos</button></div>` : '';
+  const list = candFiltered(), ph = phases();
+  const tones = { 5: 'light', 6: 'emerald', 7: 'purple' };
+  $('cand-board').innerHTML = ph.map((name, i) => {
+    const n = i + 1; const items = list.filter(c => Math.min(Math.max(+c.phase || 1, 1), 7) === n).sort((a, b) => (a.status === 'descartado') - (b.status === 'descartado') || String(a.name).localeCompare(b.name));
+    return kanbanCol('c', n, name, items.length, items.map(candCard).join(''), tones[n] || 'sky');
+  }).join('');
+}
+function candCard(c) {
+  const { client, job } = candLabel(c), age = ageFrom(c.birthdate), n = checkCount(c), stale = isCandStale(c), dis = canEdit() ? '' : 'disabled';
+  const ck = (f, label) => `<label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" ${dis} ${c[f] ? 'checked' : ''} onchange="toggleCheck('${c.id}','${f}',this)" class="rounded">
+      <span class="${c[f] ? 'line-through text-slate-400' : 'text-slate-700 font-medium'}">${label}</span></label>`;
+  return `<div class="card ${c.status === 'descartado' ? 'opacity-60' : ''} ${c.status === 'contratado' ? 'ring-1 ring-emerald-300' : ''}" ${canEdit() ? 'draggable="true" style="cursor:grab"' : ''} data-kind="c" data-id="${c.id}" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+    <div class="flex items-start justify-between gap-2">
+      <button onclick="openCandidateModal('${c.id}')" class="font-bold text-slate-900 text-left hover:text-sky-700 text-[12px] leading-snug">${esc(c.name)}</button>
+      ${age ? `<span class="text-slate-500 text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-medium shrink-0">${age}</span>` : ''}
+    </div>
+    <div class="text-[11px] text-slate-600 space-y-0.5">
+      <p class="truncate" title="${esc(job)}"><strong>Puesto:</strong> ${esc(job || '—')}</p>
+      <p class="text-sky-700 font-medium truncate">${esc(client || 'Sin cliente')}</p>
+      ${c.dni ? `<p class="font-mono text-slate-400 text-[10px]">DNI: ${esc(c.dni)}</p>` : ''}
+    </div>
+    <div class="flex flex-wrap gap-1">
+      ${c.status !== 'activo' ? statusChip(c) : ''}
+      ${stale ? `<span class="chip bg-amber-100 text-amber-800" title="Días sin cambiar de fase"><i class="ph-bold ph-warning"></i> ${daysSince(c.last_moved_at)}d sin mover</span>` : ''}
+      ${c.source === 'formulario' ? '<span class="chip bg-sky-50 text-sky-700 border border-sky-200"><i class="ph ph-globe"></i> Formulario</span>' : ''}
+      ${c.source === 'importado' ? '<span class="chip bg-slate-100 text-slate-600"><i class="ph ph-file-arrow-up"></i> Importado</span>' : ''}
+      ${c.client_visible ? '<span class="chip bg-purple-50 text-purple-700 border border-purple-200" title="Visible en la vista del cliente"><i class="ph ph-eye"></i> Terna</span>' : ''}
+      ${(c.report_rating || 'Pendiente') !== 'Pendiente' ? ratingChip(c.report_rating) : ''}
+    </div>
+    <div class="bg-slate-50 p-2 rounded-lg text-[10px] space-y-0.5 border border-slate-100 text-slate-700">
+      <div class="flex justify-between gap-2"><span>CUL:</span> <strong class="${valTone(c.cul)}">${esc(c.cul || 'Pendiente')}</strong></div>
+      <div class="flex justify-between gap-2"><span>SUNEDU:</span> <strong class="${valTone(c.sunedu)}">${esc(c.sunedu || 'Pendiente')}</strong></div>
+      <div class="flex justify-between gap-2"><span>Sintonía:</span> <strong class="${valTone(c.call_result)}">${esc(c.call_result || 'Pendiente')}</strong></div>
+    </div>
+    <div class="bg-amber-50/70 p-2 rounded-lg border border-amber-200 text-[10px] space-y-1">
+      <span class="font-bold text-amber-900 uppercase text-[9px] flex justify-between"><span>Checklist de evaluación</span><span class="${n === 4 ? 'text-emerald-700' : 'text-amber-700'}">${n}/4</span></span>
+      ${ck('check_psych', 'Pruebas psicolaborales')}${ck('check_biocv', 'Bio CV solicitado / recibido')}${ck('check_videoref', 'Referencias en video')}${ck('check_callref', 'Llamar referencias laborales')}
+    </div>
+    <div class="flex justify-between items-center text-[10px] pt-1.5 border-t border-slate-100">
+      <div class="flex flex-wrap gap-2.5">
+        <button onclick="openCandidateModal('${c.id}')" class="link-btn text-amber-700"><i class="ph ph-pencil-simple"></i><span class="edit-only">Editar</span><span class="${canEdit() ? 'hidden' : ''}">Ver</span></button>
+        ${c.phase >= 5 || c.status === 'contratado' ? `<button onclick="openReport('${c.id}')" class="link-btn text-emerald-700"><i class="ph ph-file-pdf"></i> Informe</button>` : ''}
+        ${c.status === 'activo' ? `<button onclick="openHireModal('${c.id}')" class="edit-only link-btn text-emerald-700"><i class="ph ph-seal-check"></i> Contratar</button>` : ''}
+      </div>
+      <button onclick="deleteCandidate('${c.id}')" class="edit-only text-rose-500 hover:text-rose-700" title="Eliminar"><i class="ph ph-trash"></i></button>
+    </div></div>`;
+}
+async function toggleCheck(id, field, el) {
+  try { upsertLocal('candidates', await api.update('candidates', id, { [field]: el.checked })); renderCandBoard(); }
+  catch (e) { el.checked = !el.checked; err(e); }
+}
+async function moveCandidate(id, n) {
+  const c = candById(id); if (!c || c.phase === n) return;
+  const old = c.phase, ph = phases();
+  try {
+    upsertLocal('candidates', await api.update('candidates', id, { phase: n, max_phase: Math.max(c.max_phase || c.phase || 1, n), last_moved_at: nowISO() }));
+    await api.log('candidate', id, c.name, 'Cambio de fase', `${ph[old - 1]} → ${ph[n - 1]}`);
+    renderAll(); toast(`${c.name} → ${ph[n - 1]}`);
+  } catch (e) { err(e); }
+}
+
+function openCandidateModal(id) {
+  const c = id ? candById(id) : null, ro = !canEdit(), ph = phases();
+  const pid = c ? c.process_id : (val('c-proc') && !['all', 'none'].includes(val('c-proc')) ? val('c-proc') : '');
+  const procOpts = `<option value="">— Sin proceso (escribir cliente y puesto) —</option>` + S.processes.map(p => `<option value="${p.id}" ${p.id === pid ? 'selected' : ''}>${esc(p.client)} · ${esc(p.job_title)}${p.stage === 7 ? ' (cerrado)' : ''}</option>`).join('');
+  const status = c?.status || 'activo';
+  const body = `<form id="f-cand" onsubmit="event.preventDefault(); saveCandidate('${c?.id || ''}')"><fieldset ${ro ? 'disabled' : ''} class="space-y-4">
+    <div class="box bg-slate-50 border-slate-200">
+      <span class="box-title text-slate-800"><i class="ph ph-identification-card text-sky-700"></i> Identidad y contacto</span>
+      <div class="grid md:grid-cols-4 gap-3">
+        ${fInput('c-name', 'Nombre completo', c?.name, { req: 1, cls: 'md:col-span-2', ph: 'Ej. Lucía Fernández Soto' })}
+        ${fInput('c-dni', 'DNI / CE', c?.dni, { ph: '47895621', icls: 'font-mono', attrs: 'maxlength="12"' })}
+        <div><label class="lbl" for="c-birth">Fecha de nacimiento</label><input id="c-birth" type="date" value="${esc(c?.birthdate || '')}" class="inp" oninput="$('c-age').value = ageFrom(this.value)"></div>
+      </div>
+      <div class="grid md:grid-cols-4 gap-3">
+        <div><label class="lbl">Edad (automática)</label><input id="c-age" readonly value="${esc(ageFrom(c?.birthdate))}" class="inp bg-slate-100 font-semibold text-sky-800"></div>
+        ${fInput('c-email', 'Correo', c?.email, { type: 'email' })}
+        ${fInput('c-phone', 'Teléfono', c?.phone)}
+        ${fInput('c-salary', 'Pretensión salarial', c?.salary_expectation)}
+      </div>
+      ${fInput('c-linkedin', 'LinkedIn / Portafolio', c?.linkedin, { ph: 'https://linkedin.com/in/…' })}
+    </div>
+    <div class="box bg-white border-slate-200">
+      <span class="box-title text-slate-800"><i class="ph ph-briefcase text-sky-700"></i> Proceso y estado</span>
+      <div class="grid md:grid-cols-2 gap-3">
+        ${fSelect('c-proc-sel', 'Proceso / vacante', [], '', { raw: procOpts, attrs: 'onchange="$(\'c-manual\').classList.toggle(\'hidden\', !!this.value)"' })}
+        ${fSelect('c-phase', 'Fase en el tablero', ph.map((s, i) => [i + 1, `${i + 1}. ${s}`]), c?.phase || 1, { icls: 'font-bold text-sky-800' })}
+      </div>
+      <div id="c-manual" class="grid md:grid-cols-2 gap-3 ${pid ? 'hidden' : ''}">
+        ${fInput('c-client', 'Empresa cliente (manual)', c?.client)}${fInput('c-job', 'Puesto postulado (manual)', c?.job_title)}
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        ${fSelect('c-stat', 'Estado', STATUS_OPTS, status, { attrs: `onchange="$('c-hired-w').classList.toggle('hidden', this.value!=='contratado'); $('c-discard-w').classList.toggle('hidden', this.value!=='descartado')"` })}
+        <div id="c-hired-w" class="${status === 'contratado' ? '' : 'hidden'}">${fInput('c-hired', 'Fecha de contratación', c?.hired_at || todayISO(), { type: 'date' })}</div>
+        <div id="c-discard-w" class="${status === 'descartado' ? '' : 'hidden'} md:col-span-2">${fInput('c-discard', 'Motivo de descarte', c?.discard_reason, { ph: 'Ej. Pretensión salarial fuera de rango' })}</div>
+      </div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
+      ${fSelect('c-cul', 'Certificado CUL', CUL_OPTS, c?.cul || 'Pendiente')}
+      ${fSelect('c-sunedu', 'Grados SUNEDU', SUNEDU_OPTS, c?.sunedu || 'Pendiente')}
+      ${fSelect('c-call', 'Llamada de sintonía', CALL_OPTS, c?.call_result || 'Pendiente')}
+    </div>
+    <div class="box bg-sky-50/50 border-sky-100">
+      <span class="box-title text-sky-900"><i class="ph ph-users-three text-sky-700"></i> Assessment Center: dinámicas prácticas</span>
+      <div class="grid md:grid-cols-2 gap-3">
+        ${fInput('c-d1', 'Dinámica 1 (Simulación / Roleplay)', c?.d1, { ph: 'Ej. Apto: negociación asertiva…' })}
+        ${fInput('c-d2', 'Dinámica 2 (Grupal / Priorización)', c?.d2, { ph: 'Ej. Apto: liderazgo participativo…' })}
+      </div>
+    </div>
+    <div class="box bg-purple-50/50 border-purple-100">
+      <span class="box-title text-purple-900"><i class="ph ph-video-camera text-purple-700"></i> Video CV y referencias laborales</span>
+      <div class="grid md:grid-cols-2 gap-3">
+        ${fInput('c-video', 'Video CV (enlace o estado)', c?.videocv, { ph: 'https://loom.com/share/…' })}
+        ${fInput('c-refs', 'Referencias laborales verificadas', c?.references_text, { ph: '2 jefaturas anteriores: recomendado…' })}
+      </div>
+    </div>
+    <div class="box bg-amber-50/70 border-amber-200">
+      <span class="box-title text-amber-900"><i class="ph ph-check-square text-amber-700"></i> Checklist de evaluaciones y referencias</span>
+      <div class="grid md:grid-cols-2 gap-2">
+        ${fCheck('c-k1', 'Pruebas psicolaborales realizadas', c?.check_psych, { border: 'border-amber-200' })}
+        ${fCheck('c-k2', 'Bio CV solicitado / recibido', c?.check_biocv, { border: 'border-amber-200' })}
+        ${fCheck('c-k3', 'Referencias en video recibidas', c?.check_videoref, { border: 'border-amber-200' })}
+        ${fCheck('c-k4', 'Referencias laborales llamadas', c?.check_callref, { border: 'border-amber-200' })}
+      </div>
+    </div>
+    <div class="box bg-emerald-50/60 border-emerald-100">
+      <span class="box-title text-emerald-900"><i class="ph ph-file-text text-emerald-700"></i> Informe psicolaboral</span>
+      <div class="grid md:grid-cols-3 gap-3">
+        ${fSelect('c-rating', 'Calificación final', RATING_OPTS, c?.report_rating || 'Pendiente')}
+        <div class="md:col-span-2 flex items-end">${fCheck('c-visible', 'Mostrar en la vista del cliente (terna)', c?.client_visible, { cls: 'w-full', help: 'El cliente verá nombre, fase y calificación. Nunca el DNI.' })}</div>
+      </div>
+      ${fText('c-notes', 'Observaciones / conclusiones de la evaluadora', c?.notes, { rows: 3, ph: 'Motivación, ajuste al perfil, fortalezas, oportunidades de mejora…' })}
+    </div>
+    ${c?.applicant_message ? `<div class="box bg-white border-slate-200"><span class="box-title text-slate-700"><i class="ph ph-chat-text"></i> Mensaje del postulante</span><p class="whitespace-pre-line text-slate-600">${esc(c.applicant_message)}</p></div>` : ''}
+    <div class="box bg-slate-50 border-slate-200">
+      <span class="box-title text-slate-800"><i class="ph ph-paperclip text-sky-700"></i> Documentos del candidato (CV, CUL, pruebas, informe)</span>
+      <div class="space-y-1" ${c ? `data-docs="candidate:${c.id}"` : ''}>${c ? docListHTML('candidate', c.id) : '<p class="text-[11px] text-slate-400 italic">Los archivos se suben al guardar.</p>'}</div>
+      <input id="c-files" type="file" multiple accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xls,.xlsx" class="edit-only block text-[11px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-[11px]">
+    </div>
+    ${c ? `<details class="box bg-white border-slate-200"><summary class="cursor-pointer font-semibold text-slate-700">Historial de movimientos</summary><div class="pt-2">${historyHTML(c.id)}</div></details>` : ''}
+  </fieldset></form>`;
+  openModal({
+    title: c ? esc(c.name) : 'Registrar nuevo postulante',
+    subtitle: c ? `${esc(candLabel(c).job || '')} · registrado el ${fmtDate(c.created_at)} · origen: ${esc(c.source || 'manual')}` : 'Expediente del postulante con cálculo automático de edad y seguimiento por fases.',
+    size: 'max-w-3xl', body,
+    footer: `${c && (c.phase >= 5 || c.status === 'contratado') ? `<button onclick="openReport('${c.id}')" class="btn btn-ghost mr-auto"><i class="ph ph-file-pdf text-rose-600"></i> Ver informe</button>` : ''}
+      <button data-close class="btn btn-ghost">${ro ? 'Cerrar' : 'Cancelar'}</button>${ro ? '' : '<button type="submit" form="f-cand" class="btn btn-primary save-btn">Guardar candidato</button>'}`,
+  });
+}
+async function saveCandidate(id) {
+  const c = id ? candById(id) : null, ph = phases();
+  const pid = val('c-proc-sel') || null, proc = pid ? procById(pid) : null;
+  const status = val('c-stat');
+  const row = {
+    process_id: pid, client: proc ? proc.client : val('c-client'), job_title: proc ? proc.job_title : val('c-job'),
+    name: val('c-name'), dni: val('c-dni'), birthdate: val('c-birth') || null, email: val('c-email'), phone: val('c-phone'),
+    salary_expectation: val('c-salary'), linkedin: val('c-linkedin'), phase: +val('c-phase') || 1, status,
+    hired_at: status === 'contratado' ? (val('c-hired') || todayISO()) : null, discard_reason: status === 'descartado' ? (val('c-discard') || null) : null,
+    cul: val('c-cul'), sunedu: val('c-sunedu'), call_result: val('c-call'), d1: val('c-d1'), d2: val('c-d2'), videocv: val('c-video'), references_text: val('c-refs'),
+    check_psych: chk('c-k1'), check_biocv: chk('c-k2'), check_videoref: chk('c-k3'), check_callref: chk('c-k4'),
+    report_rating: val('c-rating'), client_visible: chk('c-visible'), notes: val('c-notes'),
+  };
+  if (!row.name) return toast('El nombre es obligatorio', 'warn');
+  if (row.dni && S.candidates.some(x => x.id !== id && x.dni === row.dni && (x.process_id || null) === row.process_id)
+    && !confirm('Ya existe un candidato con este DNI en el mismo proceso. ¿Guardar de todas formas?')) return;
+  if (!c || c.phase !== row.phase) { row.last_moved_at = nowISO(); row.max_phase = Math.max(c?.max_phase || 1, row.phase); }
+  if (!c) row.source = 'manual';
+  const files = [...($('c-files')?.files || [])];
+  await busy('.save-btn', async () => {
+    let saved;
+    if (c) {
+      saved = await api.update('candidates', c.id, row);
+      if (c.phase !== row.phase) await api.log('candidate', c.id, row.name, 'Cambio de fase', `${ph[c.phase - 1]} → ${ph[row.phase - 1]}`);
+      if (c.status !== row.status) await api.log('candidate', c.id, row.name, row.status === 'contratado' ? 'Contratado' : row.status === 'descartado' ? 'Descartado' : 'Reactivado', row.status === 'contratado' ? `Fecha: ${fmtDate(row.hired_at)}` : (row.discard_reason || ''));
+      if (c.phase === row.phase && c.status === row.status) await api.log('candidate', c.id, row.name, 'Actualización de ficha', row.report_rating !== (c.report_rating || 'Pendiente') ? `Calificación: ${row.report_rating}` : '');
+    } else {
+      [saved] = await api.insert('candidates', [row]);
+      await api.log('candidate', saved.id, row.name, 'Registro', `Fase: ${ph[row.phase - 1]}`);
+    }
+    upsertLocal('candidates', saved);
+    if (files.length) await uploadDocs('candidate', saved.id, files);
+    closeTopModal(); renderAll(); toast(c ? 'Candidato actualizado' : 'Candidato registrado');
+    if (row.status === 'contratado' && c?.status !== 'contratado') checkProcessClose(row.process_id);
+  });
+}
+async function deleteCandidate(id) {
+  const c = candById(id); if (!c || !confirm(`¿Eliminar a ${c.name} y sus documentos? Esta acción no se puede deshacer.`)) return;
+  try {
+    await deleteDocsOf('candidate', id);
+    await api.remove('candidates', id); removeLocal('candidates', id);
+    await api.log('candidate', id, c.name, 'Eliminación', 'Candidato eliminado');
+    renderAll(); toast('Candidato eliminado');
+  } catch (e) { err(e); }
+}
+function openHireModal(id) {
+  const c = candById(id); if (!c) return;
+  openModal({
+    title: `Marcar como contratado: ${esc(c.name)}`, size: 'max-w-md',
+    body: `<p class="text-slate-600 mb-3">Esta fecha se usa para calcular el <strong>Time-to-Hire</strong> (desde el brief del proceso hasta la contratación).</p>${fInput('h-date', 'Fecha de contratación', todayISO(), { type: 'date' })}`,
+    footer: `<button data-close class="btn btn-ghost">Cancelar</button><button onclick="hireCandidate('${id}')" class="btn btn-green save-btn"><i class="ph-bold ph-seal-check"></i> Confirmar contratación</button>`,
+  });
+}
+async function hireCandidate(id) {
+  const c = candById(id); const d = val('h-date') || todayISO();
+  await busy('.save-btn', async () => {
+    upsertLocal('candidates', await api.update('candidates', id, { status: 'contratado', hired_at: d, phase: 7, max_phase: 7, last_moved_at: nowISO() }));
+    await api.log('candidate', id, c.name, 'Contratado', `Fecha: ${fmtDate(d)}`);
+    closeTopModal(); renderAll(); toast(`${c.name} marcado como contratado`);
+    checkProcessClose(c.process_id);
+  });
+}
+function checkProcessClose(pid) {
+  const p = pid && procById(pid); if (!p || p.stage === 7 || !canEdit()) return;
+  const hired = S.candidates.filter(c => c.process_id === pid && c.status === 'contratado').length;
+  if (hired >= (p.vacancies_count || 1) && confirm(`Se cubrieron ${hired} de ${p.vacancies_count || 1} vacante(s) de "${p.job_title}".\n¿Mover el proceso a "${stages()[6]}"?`)) moveProcess(pid, 7);
+}
+
+// ===================== INFORME PSICOLABORAL =====================
+function reportHTML(c) {
+  const { client, job } = candLabel(c), r = c.report_rating || 'Pendiente', dash = v => esc(v || '—');
+  const tone = { 'Apto': '#065f46;background:#d1fae5', 'Apto con observaciones': '#92400e;background:#fef3c7', 'No apto': '#9f1239;background:#ffe4e6' }[r] || '#475569;background:#f1f5f9';
+  const yes = (b, t) => b ? `${t} ✓` : 'Pendiente';
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1e293b;font-size:12px;line-height:1.5">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:14px">
+      <div><h2 style="font-size:16px;font-weight:700;margin:0">INFORME DE EVALUACIÓN PSICOLABORAL</h2>
+      <p style="color:#0369a1;font-weight:600;margin:2px 0 0">Consultoría en Selección & Headhunting · ${esc(consultant())}</p></div>
+      <span style="padding:4px 12px;border-radius:999px;font-weight:700;color:${tone}">CALIFICACIÓN: ${esc(r.toUpperCase())}</span>
+    </div>
+    <table style="width:100%;background:#f8fafc;border-radius:8px;margin-bottom:14px"><tr>
+      <td style="padding:8px"><strong>Candidato:</strong> ${esc(c.name)}<br><strong>DNI:</strong> ${dash(c.dni)} ${ageFrom(c.birthdate) ? '(' + ageFrom(c.birthdate) + ')' : ''}</td>
+      <td style="padding:8px"><strong>Empresa cliente:</strong> ${dash(client)}<br><strong>Puesto:</strong> ${dash(job)}</td></tr></table>
+    <h4 style="font-size:11px;text-transform:uppercase;border-bottom:1px solid #f1f5f9;margin:12px 0 6px">1. Validaciones institucionales</h4>
+    <p>• <strong>CUL:</strong> ${dash(c.cul)} &nbsp; • <strong>SUNEDU:</strong> ${dash(c.sunedu)} &nbsp; • <strong>Llamada de sintonía:</strong> ${dash(c.call_result)}</p>
+    <h4 style="font-size:11px;text-transform:uppercase;border-bottom:1px solid #f1f5f9;margin:12px 0 6px">2. Resultados del Assessment Center</h4>
+    <p><strong>Dinámica 1 (Roleplay / Simulación):</strong> ${dash(c.d1)}</p><p><strong>Dinámica 2 (Grupal / Priorización):</strong> ${dash(c.d2)}</p>
+    <h4 style="font-size:11px;text-transform:uppercase;border-bottom:1px solid #f1f5f9;margin:12px 0 6px">3. Evaluaciones y referencias</h4>
+    <p>• <strong>Pruebas psicolaborales:</strong> ${yes(c.check_psych, 'Realizadas')} &nbsp; • <strong>Bio CV:</strong> ${yes(c.check_biocv, 'Recibido')} &nbsp; • <strong>Referencias en video:</strong> ${yes(c.check_videoref, 'Recibidas')} &nbsp; • <strong>Referencias laborales:</strong> ${yes(c.check_callref, 'Verificadas')}</p>
+    <p><strong>Video CV:</strong> ${dash(c.videocv)}</p><p><strong>Referencias laborales verificadas:</strong> ${dash(c.references_text)}</p>
+    <h4 style="font-size:11px;text-transform:uppercase;border-bottom:1px solid #f1f5f9;margin:12px 0 6px">4. Conclusión psicolaboral y ajuste al perfil</h4>
+    <p style="background:#f8fafc;padding:10px;border-radius:8px;white-space:pre-line">${c.notes ? esc(c.notes) : '<em style="color:#94a3b8">Conclusión pendiente de redactar.</em>'}</p>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid #f1f5f9;margin-top:24px;padding-top:8px;font-size:10px;color:#94a3b8">
+      <span>Evaluadora: ${esc(consultant())} · Consultoría Organizacional</span><span>Fecha de emisión: ${fmtDate(todayISO())}</span></div>
+    <p style="font-size:9px;color:#94a3b8;margin-top:8px">Documento confidencial. Contiene datos personales tratados conforme a la Ley N.º 29733; uso exclusivo para el proceso de selección indicado.</p>
+  </div>`;
+}
+function openReport(id) {
+  const c = candById(id); if (!c) return;
+  const pending = (c.report_rating || 'Pendiente') === 'Pendiente' || !c.notes;
+  openModal({
+    title: '<i class="ph-bold ph-file-pdf text-rose-600"></i> Informe psicolaboral', subtitle: 'Listo para imprimir o guardar como PDF (A4).', size: 'max-w-3xl',
+    body: `${pending ? '<div class="mb-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-2"><i class="ph-bold ph-warning"></i> Falta la calificación final o la conclusión. Complétalas en la ficha del candidato antes de enviar el informe.</div>' : ''}
+      <div class="border border-slate-200 rounded-xl p-5">${reportHTML(c)}</div>`,
+    footer: `<button onclick="closeTopModal(); openCandidateModal('${id}')" class="edit-only btn btn-warn mr-auto"><i class="ph ph-pencil-simple"></i> Editar datos</button>
+      <button data-close class="btn btn-ghost">Cerrar</button><button onclick="printHTML(reportHTML(candById('${id}')))" class="btn btn-dark"><i class="ph ph-printer"></i> Imprimir / Guardar PDF</button>`,
+  });
+}
+
+// ===================== IMPORTAR / EXPORTAR EXCEL =====================
+let XLSX_PROMISE = null;
+function loadXLSX() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  XLSX_PROMISE = XLSX_PROMISE || new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => res(window.XLSX); s.onerror = () => { XLSX_PROMISE = null; rej(new Error('No se pudo cargar el lector de Excel. Revisa tu conexión.')); };
+    document.head.appendChild(s);
+  });
+  return XLSX_PROMISE;
+}
+const IMPORT_FIELDS = [['', '— Ignorar —'], ['name', 'Nombre completo'], ['dni', 'DNI'], ['job_title', 'Puesto'], ['client', 'Cliente / Empresa'], ['birthdate', 'Fecha de nacimiento'], ['email', 'Correo'], ['phone', 'Teléfono'], ['phase', 'Fase'], ['cul', 'CUL'], ['sunedu', 'SUNEDU'], ['notes', 'Observaciones'], ['created_at', 'Fecha de ingreso'], ['linkedin', 'LinkedIn'], ['salary_expectation', 'Pretensión salarial']];
+function guessField(h) {
+  const n = norm(h).replace(/[_\-.]+/g, ' ');
+  if (/nacim/.test(n)) return 'birthdate';
+  if (/cliente|empresa/.test(n)) return 'client';
+  if (/nombre|candidato|postulante|apellido/.test(n)) return 'name';
+  if (/\bdni\b|documento|\bce\b/.test(n)) return 'dni';
+  if (/puesto|cargo|vacante|posicion/.test(n)) return 'job_title';
+  if (/correo|mail/.test(n)) return 'email';
+  if (/telef|celular|movil|whatsapp/.test(n)) return 'phone';
+  if (/^fase|^etapa/.test(n)) return 'phase';
+  if (/\bcul\b|antecedente/.test(n)) return 'cul';
+  if (/sunedu|grado/.test(n)) return 'sunedu';
+  if (/observ|nota|comentario/.test(n)) return 'notes';
+  if (/linkedin/.test(n)) return 'linkedin';
+  if (/pretension|salari|sueldo/.test(n)) return 'salary_expectation';
+  if (/fecha|ingreso|registro/.test(n)) return 'created_at';
+  return '';
+}
+function parseDateAny(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) { const d = new Date(v.getTime() + 12 * 3600e3); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  if (typeof v === 'number' && v > 10000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 86400000)); return d.toISOString().slice(0, 10); }
+  const s = String(v).trim(); let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+  if ((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/))) { const y = m[3].length === 2 ? '20' + m[3] : m[3]; return `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  return null;
+}
+function parsePhase(v) {
+  if (v === '' || v == null) return 1;
+  const m = String(v).match(/\d+/); if (m) return Math.min(7, Math.max(1, +m[0]));
+  const i = phases().findIndex(p => norm(p) === norm(v)); return i >= 0 ? i + 1 : 1;
+}
+let IMPORT = null;
+function openImportModal() {
+  IMPORT = null;
+  openModal({
+    title: 'Importar candidatos desde Excel o CSV', subtitle: 'Las columnas se reconocen automáticamente (Nombre, DNI, Puesto, Cliente, Fecha de nacimiento, Correo, Teléfono, Fase…). Puedes corregir el mapeo antes de importar.',
+    size: 'max-w-4xl',
+    body: `<div class="space-y-4">
+      <label class="block border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50">
+        <i class="ph ph-file-xls text-3xl text-emerald-600"></i><p class="font-semibold text-slate-700 mt-1">Selecciona un archivo .xlsx, .xls o .csv</p>
+        <p class="text-[11px] text-slate-500">También acepta el CSV exportado por la versión anterior del sistema.</p>
+        <input type="file" accept=".xlsx,.xls,.csv" class="hidden" onchange="readImportFile(this.files[0])"></label>
+      <div id="imp-area"></div></div>`,
+    footer: `<button data-close class="btn btn-ghost">Cancelar</button><button id="imp-go" disabled onclick="runImport()" class="btn btn-primary save-btn"><i class="ph ph-upload-simple"></i> Importar</button>`,
+  });
+}
+async function readImportFile(file) {
+  if (!file) return;
+  try {
+    const X = await loadXLSX(); let wb;
+    if (/\.csv$/i.test(file.name)) wb = X.read(await file.text(), { type: 'string', raw: true });
+    else wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = X.utils.sheet_to_json(ws, { defval: '', raw: true });
+    if (!rows.length) return toast('El archivo no tiene filas', 'warn');
+    const headers = Object.keys(rows[0]);
+    IMPORT = { rows, headers, map: Object.fromEntries(headers.map(h => [h, guessField(h)])) };
+    renderImportArea();
+  } catch (e) { err(e); }
+}
+function renderImportArea() {
+  const { rows, headers, map } = IMPORT;
+  const procOpts = `<option value="auto">Automático: enlazar por Cliente + Puesto (si coincide)</option><option value="none">No enlazar (guardar cliente y puesto como texto)</option>` + S.processes.map(p => `<option value="${p.id}">Todos a: ${esc(p.client)} · ${esc(p.job_title)}</option>`).join('');
+  $('imp-area').innerHTML = `
+    <p class="text-[11px] text-slate-600 mb-2"><strong>${rows.length}</strong> filas encontradas. Revisa a qué dato corresponde cada columna:</p>
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-2 mb-3">${headers.map((h, i) => `<div class="bg-slate-50 border border-slate-200 rounded-lg p-2">
+      <p class="text-[10px] text-slate-500 truncate" title="${esc(h)}">Columna: <strong>${esc(h)}</strong></p>
+      <select class="inp mt-1" onchange="IMPORT.map[IMPORT.headers[${i}]] = this.value; renderImportPreview()">${opts(IMPORT_FIELDS, map[h])}</select></div>`).join('')}</div>
+    ${fSelect('imp-proc', 'Proceso de destino', [], '', { raw: procOpts })}
+    <div id="imp-preview" class="mt-3"></div>`;
+  renderImportPreview();
+}
+function importRowsMapped() {
+  const { rows, map } = IMPORT;
+  return rows.map(r => { const o = {}; Object.entries(map).forEach(([h, f]) => { if (f) o[f] = r[h]; }); return o; }).filter(o => String(o.name || '').trim());
+}
+function renderImportPreview() {
+  const list = importRowsMapped();
+  $('imp-go').disabled = !list.length;
+  if (!Object.values(IMPORT.map).includes('name')) { $('imp-preview').innerHTML = '<p class="text-rose-600 font-semibold">Asigna al menos la columna "Nombre completo".</p>'; $('imp-go').disabled = true; return; }
+  $('imp-preview').innerHTML = `<p class="text-[11px] text-slate-500 mb-1">Vista previa (primeras 5 de ${list.length} filas con nombre):</p>
+    <div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-[11px]"><thead class="bg-slate-100 text-left"><tr><th class="p-2">Nombre</th><th class="p-2">DNI</th><th class="p-2">Puesto</th><th class="p-2">Cliente</th><th class="p-2">Fase</th><th class="p-2">F. nac.</th></tr></thead>
+    <tbody>${list.slice(0, 5).map(o => `<tr class="border-t border-slate-100"><td class="p-2">${esc(o.name)}</td><td class="p-2">${esc(o.dni)}</td><td class="p-2">${esc(o.job_title)}</td><td class="p-2">${esc(o.client)}</td><td class="p-2">${parsePhase(o.phase)}. ${esc(phases()[parsePhase(o.phase) - 1])}</td><td class="p-2">${fmtDate(parseDateAny(o.birthdate))}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function runImport() {
+  const list = importRowsMapped(), target = val('imp-proc') || 'auto';
+  const findProc = (client, job) => S.processes.find(p => norm(p.client) === norm(client) && (norm(p.job_title) === norm(job) || (norm(job) && norm(p.job_title).includes(norm(job)))));
+  const seen = new Set(S.candidates.filter(c => c.dni).map(c => `${c.process_id || ''}|${c.dni}`));
+  let skipped = 0; const rows = [];
+  for (const o of list) {
+    const proc = target === 'auto' ? findProc(o.client, o.job_title) : target === 'none' ? null : procById(target);
+    const dni = String(o.dni ?? '').trim().replace(/\.0$/, '');
+    const key = `${proc?.id || ''}|${dni}`;
+    if (dni && seen.has(key)) { skipped++; continue; }
+    if (dni) seen.add(key);
+    const phase = parsePhase(o.phase), created = parseDateAny(o.created_at);
+    const cul = String(o.cul || '').trim(), sunedu = String(o.sunedu || '').trim();
+    rows.push({
+      ...CAND_DEFAULTS, process_id: proc?.id || null, client: proc ? proc.client : String(o.client || '').trim(), job_title: proc ? proc.job_title : String(o.job_title || '').trim(),
+      name: String(o.name).trim(), dni, birthdate: parseDateAny(o.birthdate), email: String(o.email || '').trim(), phone: String(o.phone || '').trim(),
+      linkedin: String(o.linkedin || '').trim(), salary_expectation: String(o.salary_expectation || '').trim(), notes: String(o.notes || '').trim(),
+      phase, max_phase: phase, cul: cul || 'Pendiente', sunedu: sunedu || 'Pendiente', source: 'importado',
+      ...(created ? { created_at: created + 'T12:00:00Z', last_moved_at: created + 'T12:00:00Z' } : { last_moved_at: nowISO() }),
+    });
+  }
+  if (!rows.length) return toast(`No hay filas nuevas para importar (${skipped} duplicadas).`, 'warn');
+  await busy('.save-btn', async () => {
+    for (let i = 0; i < rows.length; i += 200) (await api.insert('candidates', rows.slice(i, i + 200))).forEach(r => upsertLocal('candidates', r));
+    await api.log('system', null, 'Importación', 'Importación masiva', `${rows.length} candidatos importados${skipped ? `, ${skipped} duplicados omitidos` : ''}`);
+    closeTopModal(); renderAll();
+    toast(`${rows.length} candidatos importados${skipped ? ` · ${skipped} duplicados omitidos` : ''}`);
+  });
+}
+async function exportExcel() {
+  try {
+    const X = await loadXLSX(), ph = phases(), st = stages();
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(S.candidates.map(c => {
+      const { client, job } = candLabel(c);
+      return { Nombre: c.name, DNI: c.dni, 'Fecha nacimiento': c.birthdate, Edad: ageFrom(c.birthdate), Correo: c.email, Teléfono: c.phone, Cliente: client, Puesto: job,
+        Fase: `${c.phase}. ${ph[c.phase - 1]}`, Estado: c.status, 'Fecha contratación': c.hired_at, 'Motivo descarte': c.discard_reason, CUL: c.cul, SUNEDU: c.sunedu,
+        'Llamada sintonía': c.call_result, 'Checklist': `${checkCount(c)}/4`, Calificación: c.report_rating, Origen: c.source, 'Fecha registro': String(c.created_at || '').slice(0, 10), Observaciones: c.notes };
+    })), 'Candidatos');
+    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(S.processes.map(p => {
+      const s = procStats(p);
+      return { Cliente: p.client, Puesto: p.job_title, Etapa: `${p.stage}. ${st[p.stage - 1]}`, 'Fecha brief': p.brief_date, 'Fecha cierre': p.closed_at, Vacantes: p.vacancies_count,
+        'Candidatos activos': s.active, Contratados: s.hired, Remuneración: p.salary, Modalidad: p.modality, Sede: p.location, Contacto: p.contact_name };
+    })), 'Procesos');
+    if (isAdmin()) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(S.billing.map(b => ({ Cliente: b.client, Servicio: b.service, Contacto: b.contact, 'Costo total': +b.cost, '% comisión': +b.percent, Comisión: (+b.cost * +b.percent) / 100, Estado: b.status, Factura: b.invoice_number, 'Fecha pago': b.paid_at }))), 'Finanzas');
+    X.writeFile(wb, `TalentHub_${todayISO()}.xlsx`);
+  } catch (e) { err(e); }
+}
+
+// ===================== MÉTRICAS & KPIs =====================
+function kpiTile(label, value, sub = '', tone = 'text-slate-900', icon = '') {
+  return `<div class="panel p-4"><p class="text-xs text-slate-500 font-medium flex items-center gap-1">${icon ? `<i class="ph ph-${icon}"></i>` : ''}${label}</p>
+    <p class="text-2xl font-bold ${tone} mt-1">${value}</p>${sub ? `<p class="text-[11px] text-slate-500 mt-1">${sub}</p>` : ''}</div>`;
+}
+function renderMetrics() {
+  shell('sec-metricas', `
+    ${sectionHeader('chart-bar', 'Métricas, Time-to-Hire & Alertas', 'Se calcula automáticamente con los movimientos del tablero. Se actualiza en tiempo real.',
+      `<select id="m-client" onchange="renderMetricsBody()" class="inp w-56"></select>`)}
+    <div id="m-body" class="space-y-4"></div>`);
+  const sel = $('m-client'), cur = sel.value || 'all';
+  const clients = [...new Set(S.processes.map(p => p.client).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="all">Todos los clientes</option>` + clients.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  sel.value = clients.includes(cur) ? cur : 'all';
+  renderMetricsBody();
+}
+function renderMetricsBody() {
+  const cl = val('m-client') || 'all', ph = phases(), st = stages();
+  const procs = S.processes.filter(p => cl === 'all' || p.client === cl);
+  const cs = S.candidates.filter(c => cl === 'all' || candLabel(c).client === cl);
+  const active = cs.filter(c => c.status === 'activo'), hired = cs.filter(c => c.status === 'contratado');
+  const tth = hired.map(c => { const p = c.process_id && procById(c.process_id); const start = p?.brief_date || String(c.created_at || '').slice(0, 10); return { c, p, start, days: daysBetween(start, c.hired_at) }; }).filter(x => x.days !== null && x.days >= 0);
+  const avg = tth.length ? Math.round(tth.reduce((s, x) => s + x.days, 0) / tth.length) : null;
+  const staleC = cs.filter(isCandStale), staleP = procs.filter(isProcStale);
+  const openP = procs.filter(p => p.stage < 7);
+  const avgOpen = openP.length ? Math.round(openP.reduce((s, p) => s + daysSince(p.brief_date), 0) / openP.length) : 0;
+
+  // Embudo de conversión (máxima fase alcanzada por cada postulante)
+  const reached = ph.map((_, i) => cs.filter(c => (c.max_phase || c.phase || 1) >= i + 1).length);
+  const total = Math.max(cs.length, 1);
+  const funnel = ph.map((name, i) => {
+    const prev = i === 0 ? cs.length : reached[i - 1], conv = pct(reached[i], prev), now = active.filter(c => c.phase === i + 1).length;
+    return `<div class="grid grid-cols-12 items-center gap-2 text-[11px]" title="${esc(name)}: ${reached[i]} llegaron · ${conv}% desde la fase anterior · ${now} activos hoy">
+      <span class="col-span-4 md:col-span-3 truncate text-slate-700 font-medium">${i + 1}. ${esc(name)}</span>
+      <div class="col-span-5 md:col-span-6 bg-slate-100 rounded h-5 relative"><div class="h-5 rounded bg-sky-600" style="width:${Math.max(reached[i] ? 2 : 0, (reached[i] / total) * 100)}%"></div></div>
+      <span class="col-span-3 text-right text-slate-700"><strong>${reached[i]}</strong> <span class="text-slate-500">· ${i === 0 ? '100' : conv}% · hoy ${now}</span></span></div>`;
+  }).join('');
+  const reasons = {}; cs.filter(c => c.status === 'descartado').forEach(c => { const r = c.discard_reason || 'Sin motivo registrado'; reasons[r] = (reasons[r] || 0) + 1; });
+  const sources = {}; cs.forEach(c => { const s = c.source || 'manual'; sources[s] = (sources[s] || 0) + 1; });
+
+  $('m-body').innerHTML = `
+    <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      ${kpiTile('Procesos abiertos', openP.length, `${avgOpen} días abiertos en promedio`, 'text-slate-900', 'briefcase')}
+      ${kpiTile('Postulantes activos', active.length, `${cs.length} registrados en total`, 'text-sky-700', 'users')}
+      ${kpiTile('Contratados', hired.length, `${procs.reduce((s, p) => s + (p.vacancies_count || 1), 0)} vacantes solicitadas`, 'text-emerald-700', 'seal-check')}
+      ${kpiTile('Time-to-Hire promedio', avg === null ? '—' : `${avg} días`, tth.length ? `mín. ${Math.min(...tth.map(x => x.days))} · máx. ${Math.max(...tth.map(x => x.days))} días` : 'Brief → contratación', 'text-slate-900', 'timer')}
+      ${kpiTile('Procesos sin movimiento', staleP.length, `más de ${staleProcDays()} días en la misma etapa`, staleP.length ? 'text-amber-700' : 'text-slate-900', 'warning')}
+      ${kpiTile('Candidatos sin movimiento', staleC.length, `más de ${staleCandDays()} días en la misma fase`, staleC.length ? 'text-amber-700' : 'text-slate-900', 'warning')}
+    </div>
+    <div class="grid lg:grid-cols-3 gap-4">
+      <div class="panel p-4 lg:col-span-2 space-y-2">
+        <h3 class="font-bold text-sm text-slate-900">Tasa de conversión por fase</h3>
+        <p class="text-[11px] text-slate-500">Postulantes que llegaron a cada fase · % respecto de la fase anterior · cuántos están hoy en esa fase.</p>
+        <div class="space-y-1.5 pt-1">${cs.length ? funnel : '<p class="text-slate-400 text-xs">Sin datos todavía.</p>'}</div>
+        ${cs.length ? `<p class="text-[11px] text-emerald-700 font-semibold pt-1"><i class="ph-bold ph-seal-check"></i> Contratados: ${hired.length} (${pct(hired.length, cs.length)}% del total de postulantes)</p>` : ''}
+      </div>
+      <div class="panel p-4 space-y-3">
+        <div><h3 class="font-bold text-sm text-slate-900 mb-1">Procesos por etapa</h3>
+          ${st.map((s, i) => { const n = procs.filter(p => p.stage === i + 1).length; return `<div class="flex justify-between text-[11px] py-0.5 border-b border-slate-50"><span class="text-slate-600">${i + 1}. ${esc(s)}</span><strong>${n}</strong></div>`; }).join('')}</div>
+        <div><h3 class="font-bold text-sm text-slate-900 mb-1">Origen de postulantes</h3>
+          ${Object.entries(sources).map(([k, n]) => `<div class="flex justify-between text-[11px] py-0.5"><span class="text-slate-600 capitalize">${esc(k)}</span><strong>${n}</strong></div>`).join('') || '<p class="text-[11px] text-slate-400">—</p>'}</div>
+        <div><h3 class="font-bold text-sm text-slate-900 mb-1">Motivos de descarte</h3>
+          ${Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, n]) => `<div class="flex justify-between gap-2 text-[11px] py-0.5"><span class="text-slate-600 truncate">${esc(k)}</span><strong>${n}</strong></div>`).join('') || '<p class="text-[11px] text-slate-400">Sin descartes.</p>'}</div>
+      </div>
+    </div>
+    <div class="grid lg:grid-cols-2 gap-4">
+      <div class="panel p-4">
+        <h3 class="font-bold text-sm text-slate-900 mb-2 flex items-center gap-1.5"><i class="ph-bold ph-warning text-amber-600"></i> Alertas: sin movimiento</h3>
+        ${staleP.length || staleC.length ? `<ul class="divide-y divide-slate-100 text-[11px]">
+          ${staleP.map(p => `<li class="py-1.5 flex justify-between gap-2"><button onclick="openProcessModal('${p.id}')" class="text-left hover:text-sky-700"><i class="ph ph-briefcase"></i> <strong>${esc(p.job_title)}</strong> · ${esc(p.client)} <span class="text-slate-500">(${esc(st[p.stage - 1])})</span></button><span class="text-amber-700 font-bold shrink-0">${daysSince(p.stage_changed_at)} días</span></li>`).join('')}
+          ${staleC.map(c => `<li class="py-1.5 flex justify-between gap-2"><button onclick="openCandidateModal('${c.id}')" class="text-left hover:text-sky-700"><i class="ph ph-user"></i> <strong>${esc(c.name)}</strong> · ${esc(candLabel(c).job)} <span class="text-slate-500">(${esc(ph[c.phase - 1])})</span></button><span class="text-amber-700 font-bold shrink-0">${daysSince(c.last_moved_at)} días</span></li>`).join('')}
+        </ul>` : '<p class="text-[11px] text-emerald-700"><i class="ph-bold ph-check-circle"></i> Todo al día.</p>'}
+      </div>
+      <div class="panel p-4">
+        <h3 class="font-bold text-sm text-slate-900 mb-2">Time-to-Hire por contratación</h3>
+        ${tth.length ? `<div class="overflow-x-auto"><table class="w-full text-[11px]"><thead class="text-left text-slate-500"><tr><th class="py-1">Candidato</th><th>Proceso</th><th>Brief</th><th>Contratación</th><th class="text-right">Días</th></tr></thead><tbody class="divide-y divide-slate-100">
+          ${tth.sort((a, b) => String(b.c.hired_at).localeCompare(String(a.c.hired_at))).map(x => `<tr><td class="py-1.5 font-semibold">${esc(x.c.name)}</td><td>${esc(candLabel(x.c).job)}</td><td>${fmtDate(x.start)}</td><td>${fmtDate(x.c.hired_at)}</td><td class="text-right font-bold">${x.days}</td></tr>`).join('')}
+        </tbody></table></div>` : '<p class="text-[11px] text-slate-400">Aún no hay contrataciones registradas. Usa el botón "Contratar" en la tarjeta del candidato.</p>'}
+      </div>
+    </div>
+    <div class="panel p-4">
+      <h3 class="font-bold text-sm text-slate-900 mb-2">Postulantes activos por proceso</h3>
+      <div class="overflow-x-auto"><table class="w-full text-[11px]"><thead class="text-left text-slate-500"><tr><th class="py-1 pr-2">Proceso</th>${ph.map((_, i) => `<th class="text-center px-1" title="${esc(ph[i])}">F${i + 1}</th>`).join('')}<th class="text-center">Total</th><th class="text-right">Días abierto</th></tr></thead>
+      <tbody class="divide-y divide-slate-100">${openP.map(p => { const a = active.filter(c => c.process_id === p.id); return `<tr><td class="py-1.5 pr-2"><strong>${esc(p.job_title)}</strong> <span class="text-slate-500">· ${esc(p.client)}</span></td>${ph.map((_, i) => `<td class="text-center">${a.filter(c => c.phase === i + 1).length || '<span class="text-slate-300">0</span>'}</td>`).join('')}<td class="text-center font-bold">${a.length}</td><td class="text-right">${daysSince(p.brief_date)}</td></tr>`; }).join('') || `<tr><td colspan="10" class="py-2 text-slate-400">No hay procesos abiertos.</td></tr>`}</tbody></table></div>
+    </div>
+    <div class="panel p-4">
+      <h3 class="font-bold text-sm text-slate-900 mb-2">Actividad reciente del equipo</h3>
+      <ul class="space-y-1 text-[11px]">${S.activity_log.slice(0, 25).map(l => `<li class="flex gap-2"><span class="text-slate-400 w-28 shrink-0">${fmtDateTime(l.created_at)}</span><span><strong>${esc(l.entity_label || '')}</strong> — ${esc(l.action)}${l.detail ? ': ' + esc(l.detail) : ''} <span class="text-slate-400">(${esc(l.user_email || '')})</span></span></li>`).join('') || '<li class="text-slate-400">Sin actividad todavía.</li>'}</ul>
+    </div>`;
+}
+
+// ===================== FINANZAS (solo admin) =====================
+function renderFinanzas() {
+  if (!isAdmin()) return;
+  const s = $('sec-finanzas');
+  let total = 0, comm = 0, paid = 0, pend = 0;
+  S.billing.forEach(b => { const c = (+b.cost * +b.percent) / 100; total += +b.cost; comm += c; if (b.status === 'Pagado') paid += c; else pend += c; });
+  s.innerHTML = `
+    ${sectionHeader('currency-dollar', 'Control Financiero, Comisiones & Cobros', 'Solo visible para la administradora. Se sincroniza con los honorarios de cada proceso.',
+      `<button onclick="openBillModal()" class="btn btn-dark"><i class="ph-bold ph-plus"></i> Registrar cobro manual</button>`)}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      ${kpiTile('Facturación pactada', money(total), 'Total de servicios contratados')}
+      ${kpiTile('Mi comisión estimada', money(comm), 'Honorarios de consultoría', 'text-sky-700')}
+      ${kpiTile('Comisiones cobradas', money(paid), 'Ingresos liquidados', 'text-emerald-700')}
+      ${kpiTile('Pendiente de cobro', money(pend), 'Por cobrar al cliente', 'text-amber-700')}
+    </div>
+    <div class="panel overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-100 text-slate-600 border-b border-slate-200"><tr>
+          <th class="p-3">Empresa cliente</th><th class="p-3">Servicio / vacante</th><th class="p-3">Contacto</th><th class="p-3 text-right">Costo total</th><th class="p-3 text-center">% Comisión</th><th class="p-3 text-right">Mi comisión</th><th class="p-3">Factura</th><th class="p-3 text-center">Estado</th><th class="p-3 text-center">Acciones</th></tr></thead>
+        <tbody class="divide-y divide-slate-100">${S.billing.map(b => `<tr class="hover:bg-slate-50">
+          <td class="p-3 font-semibold text-slate-900">${esc(b.client)}</td>
+          <td class="p-3">${esc(b.service || '—')}${b.process_id ? ` <button onclick="goExpediente('${b.process_id}')" class="text-sky-700" title="Ver expediente"><i class="ph ph-arrow-square-out"></i></button>` : ''}</td>
+          <td class="p-3 text-slate-500">${esc(b.contact || '—')}</td>
+          <td class="p-3 text-right font-mono">${money(b.cost)}</td><td class="p-3 text-center font-mono">${+b.percent}%</td>
+          <td class="p-3 text-right font-mono font-bold text-sky-700">${money((+b.cost * +b.percent) / 100)}</td>
+          <td class="p-3 text-slate-500">${esc(b.invoice_number || '—')}</td>
+          <td class="p-3 text-center"><button onclick="toggleBill('${b.id}')" title="Clic para cambiar" class="chip ${b.status === 'Pagado' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${b.status === 'Pagado' ? `Pagado ✓ ${b.paid_at ? fmtDate(b.paid_at) : ''}` : 'Pendiente ⏳'}</button></td>
+          <td class="p-3 text-center whitespace-nowrap"><button onclick="openBillModal('${b.id}')" class="btn btn-warn px-2 py-1"><i class="ph ph-pencil-simple"></i></button>
+            <button onclick="deleteBill('${b.id}')" class="text-rose-500 hover:text-rose-700 p-1"><i class="ph ph-trash"></i></button></td></tr>`).join('') || '<tr><td colspan="9" class="p-6 text-center text-slate-400">Sin registros de cobro.</td></tr>'}</tbody>
+      </table></div>`;
+}
+async function toggleBill(id) {
+  const b = S.billing.find(x => x.id === id); if (!b) return;
+  const status = b.status === 'Pagado' ? 'Pendiente' : 'Pagado';
+  try { upsertLocal('billing', await api.update('billing', id, { status, paid_at: status === 'Pagado' ? todayISO() : null })); renderFinanzas(); } catch (e) { err(e); }
+}
+function openBillModal(id) {
+  const b = id ? S.billing.find(x => x.id === id) : null;
+  const procOpts = `<option value="">— Cobro independiente —</option>` + S.processes.map(p => `<option value="${p.id}" ${b?.process_id === p.id ? 'selected' : ''}>${esc(p.client)} · ${esc(p.job_title)}</option>`).join('');
+  openModal({
+    title: b ? `Editar cobro (${esc(b.client)})` : 'Registrar cobro', size: 'max-w-lg',
+    body: `<form id="f-bill" onsubmit="event.preventDefault(); saveBill('${b?.id || ''}')" class="space-y-3">
+      ${fSelect('b-proc', 'Proceso vinculado (opcional)', [], '', { raw: procOpts })}
+      ${fInput('b-client', 'Empresa cliente', b?.client, { req: 1 })}${fInput('b-service', 'Servicio / vacante', b?.service)}${fInput('b-contact', 'Contacto de pagos', b?.contact)}
+      <div class="grid grid-cols-2 gap-3">${fInput('b-cost', 'Costo total (S/)', b?.cost ?? '', { type: 'number', req: 1, attrs: 'min="0" step="0.01"' })}${fInput('b-pct', '% comisión', b?.percent ?? 20, { type: 'number', req: 1, attrs: 'min="0" max="100" step="0.1"' })}</div>
+      <div class="grid grid-cols-3 gap-3">${fSelect('b-status', 'Estado', [['Pendiente', 'Pendiente ⏳'], ['Pagado', 'Pagado ✓']], b?.status || 'Pendiente')}${fInput('b-paid', 'Fecha de pago', b?.paid_at || '', { type: 'date' })}${fInput('b-inv', 'N.º factura / RxH', b?.invoice_number)}</div>
+    </form>`,
+    footer: `<button data-close class="btn btn-ghost">Cancelar</button><button type="submit" form="f-bill" class="btn btn-green save-btn">Guardar</button>`,
+  });
+}
+async function saveBill(id) {
+  const status = val('b-status');
+  const row = { process_id: val('b-proc') || null, client: val('b-client'), service: val('b-service'), contact: val('b-contact'), cost: parseFloat(val('b-cost')) || 0, percent: parseFloat(val('b-pct')) || 0, status, paid_at: status === 'Pagado' ? (val('b-paid') || todayISO()) : null, invoice_number: val('b-inv') || null };
+  await busy('.save-btn', async () => {
+    if (id) upsertLocal('billing', await api.update('billing', id, row)); else { const [b] = await api.insert('billing', [row]); upsertLocal('billing', b); }
+    closeTopModal(); renderFinanzas(); toast('Cobro guardado');
+  });
+}
+async function deleteBill(id) {
+  if (!confirm('¿Eliminar este registro de cobro?')) return;
+  try { await api.remove('billing', id); removeLocal('billing', id); renderFinanzas(); } catch (e) { err(e); }
+}
+
+// ===================== BIBLIOTECAS: STAR, ASSESSMENT, PLANTILLAS =====================
+const LIB = {
+  competencies: {
+    sec: 'competencias', icon: 'brain', title: 'Diccionario Técnico de Competencias Psicolaborales', desc: 'Competencias con conductas observables y preguntas STAR.', btn: 'Nueva competencia', noun: 'competencia',
+    fields: [['name', 'Nombre de la competencia', 'input', 1], ['tag', 'Área / etiqueta', 'input'], ['definition', 'Definición operacional', 'text', 1], ['positive', '+ Conductas clave positivas', 'text'], ['flags', '− Señales de alerta (red flags)', 'text'], ['star', 'Pregunta STAR sugerida', 'text']],
+    card: c => `<div class="panel p-5 space-y-3">
+      <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2"><div><span class="text-[10px] uppercase font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded">${esc(c.tag || 'General')}</span><h3 class="text-sm font-bold text-slate-900 mt-1">${esc(c.name)}</h3></div>${libActions('competencies', c.id)}</div>
+      <p class="text-xs text-slate-600"><strong>Definición:</strong> ${esc(c.definition)}</p>
+      <div class="grid md:grid-cols-2 gap-2 text-xs"><div class="p-2.5 bg-emerald-50 rounded border border-emerald-100"><span class="font-bold text-emerald-800 text-[11px]">+ Conductas clave</span><p class="text-[11px] text-emerald-900 whitespace-pre-line">${esc(c.positive)}</p></div>
+      <div class="p-2.5 bg-rose-50 rounded border border-rose-100"><span class="font-bold text-rose-800 text-[11px]">− Señales de alerta</span><p class="text-[11px] text-rose-900 whitespace-pre-line">${esc(c.flags)}</p></div></div>
+      <div class="bg-slate-50 p-2.5 rounded text-[11px] text-slate-700 italic border border-slate-100"><strong>Pregunta STAR:</strong> "${esc(c.star)}"</div></div>`,
+    grid: 'grid md:grid-cols-2 gap-4',
+  },
+  dynamics: {
+    sec: 'assessment', icon: 'users-three', title: 'Banco de Dinámicas de Assessment Center', desc: 'Dinámicas grupales e individuales con objetivos, instrucciones y rúbricas.', btn: 'Nueva dinámica', noun: 'dinámica',
+    fields: [['title', 'Nombre de la dinámica / roleplay', 'input', 1], ['code', 'Código / tipo', 'input'], ['duration', 'Tiempo estimado', 'input'], ['profile', 'Perfil / puestos aplicables', 'input'], ['goal', 'Objetivo de la evaluación', 'text'], ['steps', 'Instrucciones paso a paso (guía del evaluador)', 'text'], ['pass_rubric', 'Criterio sobresaliente (Apto)', 'text'], ['fail_rubric', 'Criterio no apto (Descarte)', 'text']],
+    card: d => `<div class="panel p-5 space-y-3 text-xs">
+      <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-2"><div><div class="flex flex-wrap items-center gap-2"><span class="chip bg-purple-100 text-purple-800 uppercase">${esc(d.code || '—')}</span><span class="text-slate-400 text-[11px]"><i class="ph ph-clock"></i> ${esc(d.duration || '')}</span></div><h3 class="text-sm font-bold text-slate-900 mt-1">${esc(d.title)}</h3></div>${libActions('dynamics', d.id)}</div>
+      <p><strong>Perfil destino:</strong> ${esc(d.profile)}</p><div class="p-2.5 bg-slate-50 rounded border border-slate-100"><strong>Objetivo:</strong> ${esc(d.goal)}</div>
+      <div><strong>Instrucciones:</strong><p class="text-slate-600 mt-0.5 whitespace-pre-line leading-relaxed">${esc(d.steps)}</p></div>
+      <div class="grid md:grid-cols-2 gap-2"><div class="p-2.5 bg-emerald-50 rounded border border-emerald-100"><strong class="text-emerald-800 block text-[11px]">Rúbrica sobresaliente (Apto)</strong><p class="text-[11px] text-emerald-900">${esc(d.pass_rubric)}</p></div>
+      <div class="p-2.5 bg-rose-50 rounded border border-rose-100"><strong class="text-rose-800 block text-[11px]">Rúbrica no apto (Descarte)</strong><p class="text-[11px] text-rose-900">${esc(d.fail_rubric)}</p></div></div></div>`,
+    grid: 'space-y-4',
+  },
+  templates: {
+    sec: 'plantillas', icon: 'clipboard-text', title: 'Plantillas, Fichas & Formatos Operativos', desc: 'Formatos para postulantes, fichas de entrevista y documentos adjuntables (PDF / Word).', btn: 'Nueva plantilla', noun: 'plantilla',
+    fields: [['title', 'Nombre de la plantilla / ficha', 'input', 1], ['category', 'Categoría', 'select', 0, TPL_CATS], ['scope', 'Proceso o perfil al que aplica', 'input'], ['description', 'Descripción y propósito', 'text'], ['fields', 'Contenido / campos de la ficha', 'text'], ['link_url', 'Enlace externo (Google Forms, Drive…) opcional', 'input']],
+    card: t => { const n = docsFor('template', t.id).length; return `<div class="panel p-4 flex flex-col gap-2">
+      <div class="flex items-start justify-between gap-2"><span class="chip bg-sky-50 text-sky-700">${esc(t.category || 'Otro')}</span>${libActions('templates', t.id)}</div>
+      <h3 class="text-sm font-bold text-slate-900">${esc(t.title)}</h3><p class="text-[11px] text-sky-700 font-semibold">${esc(t.scope || '')}</p>
+      <p class="text-[11px] text-slate-600 flex-1">${esc(t.description || '')}</p>
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]"><span class="text-slate-500"><i class="ph ph-paperclip"></i> ${n} archivo(s)</span>
+      <button onclick="previewTemplate('${t.id}')" class="link-btn text-sky-700"><i class="ph ph-eye"></i> Ver / imprimir</button></div></div>`; },
+    grid: 'grid md:grid-cols-3 gap-4', docs: 'template',
+  },
+};
+function libActions(t, id) {
+  return `<div class="edit-only flex items-center gap-1 shrink-0"><button onclick="openLibModal('${t}','${id}')" title="Editar" class="p-1.5 text-amber-700 hover:bg-amber-50 rounded-lg"><i class="ph ph-pencil-simple text-base"></i></button>
+    <button onclick="deleteLib('${t}','${id}')" title="Eliminar" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><i class="ph ph-trash text-base"></i></button></div>`;
+}
+function renderLib(t) {
+  const L = LIB[t];
+  $('sec-' + L.sec).innerHTML = `${sectionHeader(L.icon, L.title, L.desc, `<button onclick="openLibModal('${t}')" class="edit-only btn btn-primary"><i class="ph-bold ph-plus"></i> ${L.btn}</button>`)}
+    <div class="${L.grid}">${S[t].map(L.card).join('') || `<div class="panel p-8 text-center text-slate-500 text-xs">No hay registros todavía.</div>`}</div>`;
+}
+const renderCompetencias = () => renderLib('competencies');
+const renderAssessment = () => renderLib('dynamics');
+const renderPlantillas = () => renderLib('templates');
+function openLibModal(t, id) {
+  const L = LIB[t], r = id ? S[t].find(x => x.id === id) : null;
+  const fields = L.fields.map(([k, label, type, req, list]) => type === 'text' ? fText('l-' + k, label, r?.[k], { rows: 3, req }) : type === 'select' ? fSelect('l-' + k, label, list, r?.[k] || list[0][0]) : fInput('l-' + k, label, r?.[k], { req })).join('');
+  openModal({
+    title: r ? `Editar ${L.noun}` : L.btn, size: 'max-w-2xl',
+    body: `<form id="f-lib" onsubmit="event.preventDefault(); saveLib('${t}','${id || ''}')" class="space-y-3">${fields}
+      ${L.docs ? `<div class="box bg-slate-50 border-slate-200"><span class="box-title text-slate-800"><i class="ph ph-paperclip text-sky-700"></i> Archivos adjuntos (PDF, Word)</span>
+        <div class="space-y-1" ${r ? `data-docs="template:${r.id}"` : ''}>${r ? docListHTML('template', r.id) : ''}</div>
+        <input id="l-files" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx" class="block text-[11px] file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-[11px]"></div>` : ''}</form>`,
+    footer: `<button data-close class="btn btn-ghost">Cancelar</button><button type="submit" form="f-lib" class="btn btn-primary save-btn">Guardar</button>`,
+  });
+}
+async function saveLib(t, id) {
+  const L = LIB[t], row = Object.fromEntries(L.fields.map(([k]) => [k, val('l-' + k)]));
+  const files = [...($('l-files')?.files || [])];
+  await busy('.save-btn', async () => {
+    let saved;
+    if (id) saved = await api.update(t, id, row); else [saved] = await api.insert(t, [row]);
+    upsertLocal(t, saved);
+    if (files.length) await uploadDocs(L.docs, saved.id, files);
+    closeTopModal(); renderAll(); toast('Guardado');
+  });
+}
+async function deleteLib(t, id) {
+  if (!confirm(`¿Eliminar esta ${LIB[t].noun}?`)) return;
+  try { if (LIB[t].docs) await deleteDocsOf(LIB[t].docs, id); await api.remove(t, id); removeLocal(t, id); renderAll(); } catch (e) { err(e); }
+}
+function templatePrintHTML(t) {
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;color:#1e293b"><p style="color:#0369a1;font-weight:600;margin:0">${esc(consultant())} · Consultoría en Selección</p>
+    <h2 style="font-size:17px;margin:4px 0">${esc(t.title)}</h2><p style="color:#64748b;margin:0 0 12px">${esc(t.scope || '')}</p>
+    <p style="font-style:italic">${esc(t.description || '')}</p><h4 style="text-transform:uppercase;font-size:11px;border-bottom:1px solid #e2e8f0;margin-top:16px">Estructura del formato / datos solicitados</h4>
+    <div style="white-space:pre-wrap;line-height:1.7">${esc(t.fields || '')}</div></div>`;
+}
+function previewTemplate(id) {
+  const t = S.templates.find(x => x.id === id); if (!t) return;
+  openModal({
+    title: esc(t.title), subtitle: esc(t.scope || ''), size: 'max-w-2xl',
+    body: `<div class="space-y-3"><div class="border border-slate-200 rounded-xl p-4">${templatePrintHTML(t)}</div>
+      ${t.link_url ? `<p><i class="ph ph-link"></i> <a href="${esc(t.link_url)}" target="_blank" rel="noopener" class="text-sky-700 hover:underline break-all">${esc(t.link_url)}</a></p>` : ''}
+      <div class="box bg-slate-50 border-slate-200"><span class="box-title text-slate-800"><i class="ph ph-paperclip"></i> Archivos</span><div class="space-y-1" data-docs="template:${t.id}">${docListHTML('template', t.id)}</div></div></div>`,
+    footer: `<button data-close class="btn btn-ghost">Cerrar</button><button onclick="printHTML(templatePrintHTML(S.templates.find(x=>x.id==='${id}')))" class="btn btn-dark"><i class="ph ph-printer"></i> Imprimir</button>`,
+  });
+}
+
+// ===================== USUARIOS, CONFIGURACIÓN Y RESPALDOS =====================
+function renderAdmin() {
+  if (!isAdmin()) return;
+  const ph = phases(), st = stages();
+  $('sec-admin').innerHTML = `
+    ${sectionHeader('gear', 'Usuarios & Configuración', 'Controla quién accede y qué puede hacer, y personaliza las fases del sistema.')}
+    <div class="grid lg:grid-cols-2 gap-4">
+      <div class="panel p-4 space-y-3">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5"><i class="ph ph-users-four text-sky-700"></i> Usuarios y permisos</h3>
+        <div class="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-1">
+          <p><strong>Cómo invitar a alguien:</strong> envíale el enlace de esta página. Crea su cuenta con "Crear cuenta", confirma su correo y aparecerá aquí como <em>Pendiente</em>. Tú le asignas el rol.</p>
+          <p><strong>Administradora:</strong> todo, incluidas Finanzas y Usuarios. <strong>Editor:</strong> crea y mueve procesos y candidatos. <strong>Solo lectura:</strong> ve el avance sin modificar (ideal para tu jefe). Para quitar el acceso, cambia el rol a <em>Pendiente</em>.</p>
+        </div>
+        ${MODE === 'demo' ? '<p class="text-[11px] text-amber-700">En modo demo los usuarios son de ejemplo. Usa el selector "Ver como" de la barra amarilla para probar cada rol.</p>' : ''}
+        <div class="overflow-x-auto"><table class="w-full text-[11px]"><thead class="text-left text-slate-500"><tr><th class="py-1">Usuario</th><th>Registro</th><th>Rol</th></tr></thead><tbody class="divide-y divide-slate-100">
+          ${S.users.map(u => `<tr><td class="py-1.5"><strong>${esc(u.full_name || '')}</strong><br><span class="text-slate-500">${esc(u.email)}</span></td><td>${fmtDate(u.created_at)}</td>
+            <td><select class="inp w-36" ${u.id === S.profile.id || MODE === 'demo' ? 'disabled' : ''} onchange="setUserRole('${u.id}', this.value)">${opts(Object.entries(ROLE_LABEL), u.role)}</select></td></tr>`).join('')}
+        </tbody></table></div>
+      </div>
+      <div class="panel p-4 space-y-3">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5"><i class="ph ph-sliders text-sky-700"></i> Configuración general</h3>
+        <form id="f-cfg" onsubmit="event.preventDefault(); saveConfig()" class="space-y-3">
+          ${fInput('cfg-name', 'Nombre de la consultora (aparece en informes y enlaces públicos)', consultant())}
+          <div class="grid grid-cols-2 gap-3">${fInput('cfg-sc', 'Alerta candidato sin movimiento (días)', staleCandDays(), { type: 'number', attrs: 'min="1"' })}${fInput('cfg-sp', 'Alerta proceso sin movimiento (días)', staleProcDays(), { type: 'number', attrs: 'min="1"' })}</div>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="space-y-1.5"><p class="lbl">Fases del tablero de candidatos</p>${ph.map((p, i) => `<div class="flex items-center gap-1.5"><span class="w-5 text-slate-400 text-[10px]">${i + 1}.</span><input id="cfg-ph${i}" value="${esc(p)}" required class="inp"></div>`).join('')}</div>
+            <div class="space-y-1.5"><p class="lbl">Etapas del tablero de procesos</p>${st.map((p, i) => `<div class="flex items-center gap-1.5"><span class="w-5 text-slate-400 text-[10px]">${i + 1}.</span><input id="cfg-st${i}" value="${esc(p)}" required class="inp"></div>`).join('')}</div>
+          </div>
+          <div class="flex justify-end"><button type="submit" class="btn btn-primary save-btn">Guardar configuración</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="panel p-4 space-y-3">
+      <h3 class="font-bold text-sm text-slate-900 flex items-center gap-1.5"><i class="ph ph-database text-sky-700"></i> Datos y respaldos</h3>
+      <p class="text-[11px] text-slate-600">La información se guarda ${MODE === 'cloud' ? 'en la nube (Supabase) y se sincroniza en todas las computadoras' : '<strong>solo en este navegador (modo demo)</strong>'}. El respaldo .json incluye procesos, candidatos, finanzas, competencias, dinámicas, plantillas, historial y la lista de documentos (los archivos en sí quedan en el almacenamiento).</p>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="exportBackup()" class="btn btn-ghost"><i class="ph ph-download-simple"></i> Exportar respaldo (.json)</button>
+        <button onclick="openRestoreModal()" class="btn btn-ghost"><i class="ph ph-upload-simple"></i> Restaurar respaldo</button>
+        <button onclick="exportExcel()" class="btn btn-green"><i class="ph ph-microsoft-excel-logo"></i> Exportar a Excel</button>
+        ${MODE === 'demo' ? '<button onclick="resetDemo()" class="btn btn-warn"><i class="ph ph-arrows-clockwise"></i> Restablecer datos de ejemplo</button>' : ''}
+      </div>
+    </div>`;
+}
+async function setUserRole(id, r) {
+  try { const u = await api.update('profiles', id, { role: r }); const i = S.users.findIndex(x => x.id === id); if (i >= 0) S.users[i] = u; toast('Rol actualizado'); }
+  catch (e) { err(e); renderAdmin(); }
+}
+async function saveConfig() {
+  await busy('.save-btn', async () => {
+    const ph = [...Array(7)].map((_, i) => val('cfg-ph' + i)), st = [...Array(7)].map((_, i) => val('cfg-st' + i));
+    const pairs = [['consultant_name', val('cfg-name') || 'Adriana Olivos'], ['candidate_phases', ph], ['process_stages', st], ['stale_candidate_days', Math.max(1, +val('cfg-sc') || 7)], ['stale_process_days', Math.max(1, +val('cfg-sp') || 14)]];
+    for (const [k, v] of pairs) { await api.setSetting(k, v); S.settings[k] = v; }
+    renderAll(); toast('Configuración guardada');
+  });
+}
+function resetDemo() {
+  if (!confirm('¿Borrar los datos del modo demo y volver a los datos de ejemplo?')) return;
+  localStorage.removeItem(DEMO_KEY); localStorage.removeItem(DEMO_FILES); location.reload();
+}
+const BACKUP_TABLES = ['settings', 'competencies', 'dynamics', 'templates', 'processes', 'candidates', 'billing', 'documents', 'activity_log'];
+async function exportBackup() {
+  try {
+    const tables = {};
+    for (const t of BACKUP_TABLES) tables[t] = await api.list(t);
+    const blob = new Blob([JSON.stringify({ app: 'TalentHub', version: 2, exported_at: nowISO(), exported_by: S.profile?.email, tables }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Respaldo_TalentHub_${todayISO()}.json`; document.body.appendChild(a); a.click(); a.remove();
+    toast('Respaldo descargado');
+  } catch (e) { err(e); }
+}
+function openRestoreModal() {
+  openModal({
+    title: 'Restaurar respaldo', subtitle: 'Reemplaza TODA la información actual por la del archivo .json.', size: 'max-w-lg',
+    body: `<div class="space-y-3"><div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-3"><i class="ph-bold ph-warning"></i> Los registros que no estén en el respaldo se eliminarán. Te recomendamos exportar un respaldo actual antes de continuar.</div>
+      <input id="r-file" type="file" accept=".json,application/json" class="block text-xs">${fInput('r-confirm', 'Escribe RESTAURAR para confirmar', '', { ph: 'RESTAURAR' })}</div>`,
+    footer: `<button data-close class="btn btn-ghost">Cancelar</button><button onclick="restoreBackup()" class="btn btn-dark save-btn"><i class="ph ph-upload-simple"></i> Restaurar</button>`,
+  });
+}
+async function restoreBackup() {
+  const f = $('r-file').files[0];
+  if (!f) return toast('Selecciona un archivo .json', 'warn');
+  if (val('r-confirm').toUpperCase() !== 'RESTAURAR') return toast('Escribe RESTAURAR para confirmar', 'warn');
+  await busy('.save-btn', async () => {
+    let data; try { data = JSON.parse(await f.text()); } catch (e) { throw new Error('El archivo no es un JSON válido'); }
+    if (data?.app !== 'TalentHub' || !data.tables) throw new Error('El archivo no es un respaldo de TalentHub');
+    const T = data.tables;
+    if (MODE === 'demo') {
+      BACKUP_TABLES.forEach(t => { if (Array.isArray(T[t])) DEMO[t] = T[t]; }); demoSave();
+    } else {
+      for (const t of BACKUP_TABLES) {
+        const rows = T[t] || []; if (!rows.length) continue;
+        if (t === 'settings') await api.upsert(t, rows, 'key');
+        else if (t === 'activity_log') await api.upsert(t, rows, 'id', true);
+        else await api.upsert(t, rows, 'id');
+      }
+      for (const t of [...BACKUP_TABLES].reverse()) {
+        if (['settings', 'activity_log'].includes(t) || !Array.isArray(T[t])) continue;
+        const keep = new Set(T[t].map(r => r.id));
+        await api.removeMany(t, (await api.list(t)).filter(r => !keep.has(r.id)).map(r => r.id));
+      }
+    }
+    await loadAll(); closeTopModal(); renderAll(); toast('Respaldo restaurado correctamente');
+  });
+}
+
+// ===================== FORMULARIO PÚBLICO DEL POSTULANTE =====================
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function showScreen(id) { ['screen-loading', 'screen-auth', 'screen-public', 'screen-app'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function publicFrame(inner, brand) {
+  return `<div class="max-w-2xl mx-auto p-4 md:p-8 space-y-4">
+    <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-800 to-sky-600 text-white flex items-center justify-center font-bold">AO</div>
+      <div><p class="text-sm font-bold text-slate-900">${esc(brand || 'Adriana Olivos')}</p><p class="text-[11px] text-slate-500">Consultoría en Selección & Headhunting</p></div></div>
+    ${inner}
+    <p class="text-center text-[10px] text-slate-400 pt-4">TalentHub Executive · Información tratada de forma confidencial</p></div>`;
+}
+async function renderApplyPage(token) {
+  showScreen('screen-public');
+  let info = null;
+  try { if (UUID_RE.test(token)) info = await api.rpc('get_public_process', { p_token: token }); } catch (e) { console.error(e); }
+  if (!info) { $('screen-public').innerHTML = publicFrame(`<div class="panel p-8 text-center"><i class="ph ph-door text-4xl text-slate-400"></i><h2 class="font-bold text-slate-900 mt-2">Esta convocatoria no está disponible</h2><p class="text-xs text-slate-500">Es posible que ya haya cerrado. Gracias por tu interés.</p></div>`); return; }
+  $('screen-public').innerHTML = publicFrame(`
+    <div class="panel p-5 space-y-2">
+      <p class="text-[11px] font-bold text-sky-700 uppercase">Convocatoria${info.client ? ' · ' + esc(info.client) : ' · Empresa confidencial'}</p>
+      <h1 class="text-lg font-bold text-slate-900">${esc(info.job_title)}</h1>
+      <div class="flex flex-wrap gap-2 text-[11px] text-slate-600">
+        ${info.location ? `<span class="chip bg-slate-100 text-slate-700"><i class="ph ph-map-pin"></i> ${esc(info.location)}</span>` : ''}
+        ${info.modality ? `<span class="chip bg-slate-100 text-slate-700"><i class="ph ph-buildings"></i> ${esc(info.modality)}</span>` : ''}
+        ${info.schedule ? `<span class="chip bg-slate-100 text-slate-700"><i class="ph ph-clock"></i> ${esc(info.schedule)}</span>` : ''}
+      </div>
+      ${info.description ? `<details class="text-xs text-slate-600"><summary class="cursor-pointer font-semibold text-slate-700">Funciones y requisitos</summary><p class="whitespace-pre-line mt-2">${esc(info.description)}</p>${info.requirements ? `<p class="whitespace-pre-line mt-2"><strong>Requisitos:</strong> ${esc(info.requirements)}</p>` : ''}</details>` : ''}
+    </div>
+    <form id="f-apply" onsubmit="event.preventDefault(); submitApply('${token}')" class="panel p-5 space-y-3 text-xs">
+      <h2 class="font-bold text-sm text-slate-900">Ficha de postulación</h2>
+      <div class="grid md:grid-cols-2 gap-3">
+        ${fInput('a-name', 'Nombres y apellidos', '', { req: 1, attrs: 'maxlength="150" autocomplete="name"' })}
+        ${fInput('a-dni', 'DNI / CE', '', { req: 1, attrs: 'maxlength="12" inputmode="numeric"' })}
+        ${fInput('a-birth', 'Fecha de nacimiento', '', { type: 'date' })}
+        ${fInput('a-phone', 'Celular', '', { req: 1, type: 'tel', attrs: 'maxlength="40" autocomplete="tel"' })}
+        ${fInput('a-email', 'Correo electrónico', '', { req: 1, type: 'email', attrs: 'maxlength="150" autocomplete="email"' })}
+        ${fInput('a-salary', 'Pretensión salarial', '', { ph: 'Ej. S/ 9,000 brutos' })}
+      </div>
+      ${fInput('a-linkedin', 'LinkedIn (opcional)', '', { ph: 'https://linkedin.com/in/…' })}
+      ${fText('a-msg', '¿Por qué te interesa este puesto? (opcional)', '', { rows: 3 })}
+      <div class="grid md:grid-cols-2 gap-3">
+        <div><label class="lbl">CV (PDF o Word, máx. 10 MB) <span class="text-rose-500">*</span></label><input id="a-cv" type="file" required accept=".pdf,.doc,.docx" class="block w-full text-[11px]"></div>
+        <div><label class="lbl">Otro documento (opcional)</label><input id="a-extra" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" class="block w-full text-[11px]"></div>
+      </div>
+      <label class="flex items-start gap-2 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-2.5">
+        <input id="a-consent" type="checkbox" required class="mt-0.5">
+        <span>Autorizo a ${esc(info.consultant || 'la consultora')} a tratar mis datos personales con la finalidad de evaluar mi candidatura en este y otros procesos de selección, conforme a la Ley N.º 29733 de Protección de Datos Personales. Declaro que la información proporcionada es veraz.</span></label>
+      <button type="submit" id="a-btn" class="btn btn-primary w-full py-2.5 text-sm">Enviar postulación</button>
+    </form>`, info.consultant);
+}
+async function submitApply(token) {
+  const files = [$('a-cv').files[0], $('a-extra').files[0]].filter(Boolean);
+  for (const f of files) if (f.size > MAX_FILE) return toast(`${f.name} supera 10 MB`, 'warn');
+  const btn = $('a-btn'); btn.disabled = true; btn.innerHTML = '<i class="ph ph-circle-notch animate-spin"></i> Enviando…';
+  try {
+    const meta = [];
+    for (const f of files) {
+      const path = `postulaciones/${token}/${uid()}/${safeName(f.name)}`;
+      await api.upload(path, f); meta.push({ name: f.name, path, size: f.size, mime: f.type });
+    }
+    await api.rpc('submit_application', { p_token: token, p_name: val('a-name'), p_dni: val('a-dni'), p_birthdate: val('a-birth') || null, p_email: val('a-email'), p_phone: val('a-phone'), p_linkedin: val('a-linkedin'), p_salary: val('a-salary'), p_message: val('a-msg'), p_files: meta });
+    $('f-apply').outerHTML = `<div class="panel p-8 text-center space-y-2"><i class="ph-fill ph-check-circle text-5xl text-emerald-600"></i><h2 class="font-bold text-slate-900 text-base">¡Postulación recibida!</h2><p class="text-xs text-slate-500">Gracias, ${esc(val('a-name') || '')}. Revisaremos tu perfil y te contactaremos si avanzas en el proceso.</p></div>`;
+  } catch (e) { err(e); btn.disabled = false; btn.textContent = 'Enviar postulación'; }
+}
+
+// ===================== VISTA DE SEGUIMIENTO DEL CLIENTE =====================
+async function renderClientPage(token) {
+  showScreen('screen-public');
+  let v = null;
+  try { if (UUID_RE.test(token)) v = await api.rpc('get_client_view', { p_token: token }); } catch (e) { console.error(e); }
+  if (!v) { $('screen-public').innerHTML = publicFrame('<div class="panel p-8 text-center"><i class="ph ph-lock text-4xl text-slate-400"></i><h2 class="font-bold text-slate-900 mt-2">Enlace no disponible</h2><p class="text-xs text-slate-500">Solicita un nuevo enlace a tu consultora.</p></div>'); return; }
+  const st = Array.isArray(v.stages) && v.stages.length === 7 ? v.stages : DEFAULT_STAGES, ph = Array.isArray(v.phases) && v.phases.length === 7 ? v.phases : DEFAULT_PHASES;
+  const fmap = Object.fromEntries((v.funnel || []).map(f => [f.phase, f.n])), active = Object.values(fmap).reduce((a, b) => a + b, 0);
+  $('screen-public').innerHTML = publicFrame(`
+    <div class="panel p-5 space-y-3">
+      <div class="flex flex-wrap justify-between gap-2"><div><p class="text-[11px] font-bold text-sky-700 uppercase">${esc(v.client)}</p><h1 class="text-lg font-bold text-slate-900">${esc(v.job_title)}</h1>
+        <p class="text-[11px] text-slate-500">Inicio del proceso: ${fmtDate(v.brief_date)} · ${daysSince(v.brief_date)} días</p></div>
+        <button onclick="renderClientPage('${token}')" class="btn btn-ghost h-8"><i class="ph ph-arrows-clockwise"></i> Actualizar</button></div>
+      <div class="grid grid-cols-7 gap-1">${st.map((s, i) => `<div class="text-center"><div class="h-2 rounded ${i + 1 <= v.stage ? 'bg-sky-600' : 'bg-slate-200'}"></div><p class="text-[9px] mt-1 ${i + 1 === v.stage ? 'font-bold text-sky-800' : 'text-slate-400'} leading-tight">${esc(s)}</p></div>`).join('')}</div>
+    </div>
+    <div class="grid grid-cols-3 gap-3">${kpiTile('Postulantes en evaluación', active)}${kpiTile('En terna presentada', (v.shortlist || []).length, '', 'text-purple-700')}${kpiTile('Contratados', v.hired || 0, '', 'text-emerald-700')}</div>
+    <div class="panel p-5"><h2 class="font-bold text-sm text-slate-900 mb-2">Avance de postulantes por fase</h2>
+      ${ph.map((p, i) => `<div class="flex justify-between text-xs py-1 border-b border-slate-50"><span class="text-slate-600">${i + 1}. ${esc(p)}</span><strong>${fmap[i + 1] || 0}</strong></div>`).join('')}</div>
+    <div class="panel p-5"><h2 class="font-bold text-sm text-slate-900 mb-2">Terna / candidatos presentados</h2>
+      ${(v.shortlist || []).length ? `<table class="w-full text-xs"><thead class="text-left text-slate-500"><tr><th class="py-1">Candidato</th><th>Fase</th><th>Calificación</th><th>Actualizado</th></tr></thead><tbody class="divide-y divide-slate-100">
+        ${v.shortlist.map(c => `<tr><td class="py-1.5 font-semibold">${esc(c.name)} ${c.status === 'contratado' ? '<span class="chip bg-emerald-100 text-emerald-800">Contratado</span>' : ''}</td><td>${esc(ph[c.phase - 1] || '')}</td><td>${ratingChip(c.rating)}</td><td>${fmtDate(c.updated)}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="text-xs text-slate-400">La terna se mostrará aquí cuando esté lista.</p>'}</div>`, v.consultant);
+  clearTimeout(window._cvTimer); window._cvTimer = setTimeout(() => renderClientPage(token), 60000);
+}
+
+// ===================== LOGIN, REGISTRO Y ARRANQUE =====================
+function showAuth(mode = 'login', msg = '') {
+  showScreen('screen-auth');
+  const note = msg ? `<div class="bg-sky-50 border border-sky-200 text-sky-900 rounded-lg p-2.5 text-xs">${msg}</div>` : '';
+  const views = {
+    login: `<form onsubmit="event.preventDefault(); doLogin()" class="space-y-3 text-xs">${note}
+      ${fInput('au-email', 'Correo', '', { type: 'email', req: 1, attrs: 'autocomplete="email"' })}${fInput('au-pass', 'Contraseña', '', { type: 'password', req: 1, attrs: 'autocomplete="current-password"' })}
+      <button class="btn btn-primary w-full py-2 auth-btn">Ingresar</button>
+      <div class="flex justify-between text-[11px]"><button type="button" onclick="showAuth('signup')" class="text-sky-700 hover:underline">Crear cuenta</button><button type="button" onclick="showAuth('forgot')" class="text-slate-500 hover:underline">Olvidé mi contraseña</button></div></form>`,
+    signup: `<form onsubmit="event.preventDefault(); doSignup()" class="space-y-3 text-xs">${note}
+      ${fInput('au-name', 'Nombre completo', '', { req: 1 })}${fInput('au-email', 'Correo', '', { type: 'email', req: 1 })}${fInput('au-pass', 'Contraseña (mín. 8 caracteres)', '', { type: 'password', req: 1, attrs: 'minlength="8" autocomplete="new-password"' })}
+      <button class="btn btn-primary w-full py-2 auth-btn">Crear cuenta</button>
+      <p class="text-[11px] text-slate-500">Tras confirmar tu correo, la administradora debe aprobar tu acceso.</p>
+      <button type="button" onclick="showAuth('login')" class="text-[11px] text-sky-700 hover:underline">← Volver</button></form>`,
+    forgot: `<form onsubmit="event.preventDefault(); doForgot()" class="space-y-3 text-xs">${note}${fInput('au-email', 'Correo', '', { type: 'email', req: 1 })}
+      <button class="btn btn-primary w-full py-2 auth-btn">Enviar enlace de recuperación</button><button type="button" onclick="showAuth('login')" class="text-[11px] text-sky-700 hover:underline">← Volver</button></form>`,
+    reset: `<form onsubmit="event.preventDefault(); doReset()" class="space-y-3 text-xs">${note}<p class="font-semibold text-slate-700">Crea tu nueva contraseña</p>
+      ${fInput('au-pass', 'Nueva contraseña (mín. 8 caracteres)', '', { type: 'password', req: 1, attrs: 'minlength="8" autocomplete="new-password"' })}<button class="btn btn-primary w-full py-2 auth-btn">Guardar contraseña</button></form>`,
+    pending: `<div class="space-y-3 text-xs">${note}<div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-3"><i class="ph-bold ph-hourglass"></i> Tu cuenta <strong>${esc(S.pendingEmail || '')}</strong> está pendiente de aprobación. Pide a la administradora que te asigne un rol.</div>
+      <button onclick="S.started=false; checkSession()" class="btn btn-primary w-full">Volver a comprobar</button><button onclick="logout()" class="btn btn-ghost w-full">Cerrar sesión</button></div>`,
+  };
+  $('auth-box').innerHTML = views[mode] || views.login;
+}
+async function doLogin() {
+  await busy('.auth-btn', async () => {
+    const { error } = await sb.auth.signInWithPassword({ email: val('au-email'), password: $('au-pass').value });
+    if (error) throw new Error(error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos' : error.message);
+    await checkSession();
+  });
+}
+async function doSignup() {
+  await busy('.auth-btn', async () => {
+    const { data, error } = await sb.auth.signUp({ email: val('au-email'), password: $('au-pass').value, options: { data: { full_name: val('au-name') }, emailRedirectTo: baseURL() } });
+    if (error) throw error;
+    if (data.session) await checkSession();
+    else showAuth('login', 'Cuenta creada. Revisa tu correo y haz clic en el enlace de confirmación; luego ingresa aquí.');
+  });
+}
+async function doForgot() {
+  await busy('.auth-btn', async () => {
+    const { error } = await sb.auth.resetPasswordForEmail(val('au-email'), { redirectTo: baseURL() }); if (error) throw error;
+    showAuth('login', 'Te enviamos un correo con el enlace para crear una nueva contraseña.');
+  });
+}
+async function doReset() {
+  await busy('.auth-btn', async () => {
+    const { error } = await sb.auth.updateUser({ password: $('au-pass').value }); if (error) throw error;
+    S.recovering = false; history.replaceState(null, '', baseURL()); toast('Contraseña actualizada'); await checkSession();
+  });
+}
+async function logout() {
+  if (MODE === 'demo') { toast('En modo demo no hay sesión que cerrar.', 'warn'); return; }
+  await sb.auth.signOut(); location.href = baseURL();
+}
+async function checkSession() {
+  if (S.started || S.recovering) return;
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return showAuth('login');
+  const { data: prof, error } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  if (error) { err(error); return showAuth('login'); }
+  S.pendingEmail = session.user.email;
+  if (!prof || prof.role === 'pendiente') return showAuth('pending');
+  S.profile = prof; await startApp();
+}
+function renderDemoBanner() {
+  const b = $('demo-banner'); if (MODE !== 'demo') return;
+  b.classList.remove('hidden');
+  b.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2"><span><i class="ph-bold ph-flask"></i> <strong>Modo demostración:</strong> los datos se guardan solo en este navegador. Para usarlo en varias computadoras con usuarios, configura Supabase (ver guía).</span>
+    <label class="flex items-center gap-1.5 font-semibold">Ver como:<select onchange="setDemoRole(this.value)" class="border border-amber-300 rounded px-1.5 py-0.5 bg-white">${opts([['admin', 'Administradora'], ['editor', 'Editor'], ['lector', 'Solo lectura (jefe)']], S.profile.role)}</select></label></div>`;
+}
+async function setDemoRole(r) {
+  try { localStorage.setItem('th_demo_role', r); } catch (e) { }
+  const p = (DEMO.profiles || []).find(x => x.role === r) || {};
+  S.profile = { id: p.id || 'demo', email: p.email || 'demo@local', full_name: p.full_name || 'Demo', role: r };
+  await loadAll(); switchTab(S.tab);
+}
+async function startApp() {
+  if (S.started) return; S.started = true;
+  showScreen('screen-app'); renderDemoBanner();
+  $('sec-procesos').innerHTML = '<div class="p-10 text-center text-slate-500 text-sm"><i class="ph ph-circle-notch animate-spin"></i> Cargando datos…</div>';
+  await loadAll();
+  let tab = 'procesos'; try { tab = localStorage.getItem('th_tab') || 'procesos'; } catch (e) { }
+  switchTab(tab);
+  if (sb) subscribeRealtime();
+}
+function subscribeRealtime() {
+  const pending = new Set();
+  const flush = debounce(async () => {
+    const ts = [...pending]; pending.clear();
+    await Promise.all(ts.map(t => refresh(t).catch(() => { })));
+    renderAll();
+  }, 600);
+  sb.channel('talenthub-db').on('postgres_changes', { event: '*', schema: 'public' }, payload => { pending.add(payload.table); flush(); }).subscribe();
+}
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  if (MODE === 'demo') demoLoad();
+  if (MODE === 'cloud' && !sb) { showScreen('screen-auth'); $('auth-box').innerHTML = '<p class="text-rose-600 text-xs">No se pudo cargar la librería de Supabase. Revisa tu conexión a internet.</p>'; return; }
+  if (params.get('postular')) return renderApplyPage(params.get('postular'));
+  if (params.get('cliente')) return renderClientPage(params.get('cliente'));
+  if (MODE === 'demo') {
+    let r = 'admin'; try { r = localStorage.getItem('th_demo_role') || 'admin'; } catch (e) { }
+    const p = (DEMO.profiles || []).find(x => x.role === r) || { id: 'demo', email: 'adriana@demo.local', full_name: 'Adriana Olivos' };
+    S.profile = { id: p.id, email: p.email, full_name: p.full_name, role: r };
+    return startApp();
+  }
+  S.recovering = /type=recovery/.test(INITIAL_HASH);
+  sb.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') { S.recovering = true; setTimeout(() => showAuth('reset'), 0); }
+    else if (event === 'SIGNED_OUT') { S.started = false; setTimeout(() => showAuth('login'), 0); }
+  });
+  if (S.recovering) return showAuth('reset');
+  await checkSession();
+}
+window.addEventListener('DOMContentLoaded', () => { boot().catch(e => { err(e); showScreen('screen-auth'); }); });
+
+</script>
+</body>
+</html>
