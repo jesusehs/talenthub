@@ -105,6 +105,7 @@
 
     <main class="flex-1 p-4 md:p-6 w-full max-w-[1600px] mx-auto">
       <section id="sec-procesos" class="space-y-4"></section>
+      <section id="sec-avance" class="space-y-4 hidden"></section>
       <section id="sec-candidatos" class="space-y-4 hidden"></section>
       <section id="sec-expedientes" class="space-y-4 hidden"></section>
       <section id="sec-metricas" class="space-y-4 hidden"></section>
@@ -155,6 +156,7 @@ const TABLES = ['processes', 'candidates', 'billing', 'competencies', 'dynamics'
 
 const TABS = [
   { id: 'procesos', label: 'Procesos B2B', icon: 'briefcase' },
+  { id: 'avance', label: 'Control de Avance', icon: 'list-checks' },
   { id: 'candidatos', label: 'Candidatos', icon: 'users' },
   { id: 'expedientes', label: 'Expedientes & Docs', icon: 'folder-open' },
   { id: 'metricas', label: 'Métricas & KPIs', icon: 'chart-bar' },
@@ -527,7 +529,7 @@ function switchTab(id) {
 function renderAll() {
   applyRoleClasses(); renderNav();
   TABS.forEach(t => $('sec-' + t.id).classList.toggle('hidden', t.id !== S.tab));
-  const map = { procesos: renderProcesses, candidatos: renderCandidates, expedientes: renderExpedientes, metricas: renderMetrics, finanzas: renderFinanzas, competencias: renderCompetencias, assessment: renderAssessment, plantillas: renderPlantillas, admin: renderAdmin };
+  const map = { procesos: renderProcesses, avance: renderAvance, candidatos: renderCandidates, expedientes: renderExpedientes, metricas: renderMetrics, finanzas: renderFinanzas, competencias: renderCompetencias, assessment: renderAssessment, plantillas: renderPlantillas, admin: renderAdmin };
   try { (map[S.tab] || renderProcesses)(); } catch (e) { err(e); }
 }
 function shell(secId, html) { const s = $(secId); if (!s.dataset.built) { s.innerHTML = html; s.dataset.built = '1'; } return s; }
@@ -868,6 +870,179 @@ function renderExpList() {
       </div>
     </article>`;
   }).join('');
+}
+
+// ===================== CONTROL DE AVANCE (checklist metodológico por proceso) =====================
+// Cada ítem se guarda en processes.checklist como { clave: { at: fecha, by: correo } }.
+// 'stage' = etapa del tablero de Procesos B2B que se SUGIERE al completar la columna.
+const AVANCE = [
+  { id: 'prep', title: 'Preparación y Estrategia', stage: 2, items: [['firma_propuesta', 'Firma de propuesta'], ['reunion_alineacion', 'Reunión de alineación'], ['cronograma', 'Cronograma (30 días hábiles)'], ['formulario_inicial', 'Formulario inicial'], ['ficha_dj', 'Ficha Personal (DJ)']] },
+  { id: 'atraccion', title: 'Atracción y Filtro Inicial', stage: 4, items: [['convocatorias', 'Lanzamiento de convocatorias'], ['filtro_curricular', 'Filtro curricular'], ['filtro_telefonico', 'Filtro telefónico (CUL)'], ['entrevista_virtual', 'Entrevista virtual', true]] },
+  { id: 'fase1', title: 'Fase I: Primera Reunión', items: [['entrevista_1', 'Entrevista presencial 1'], ['envio_pruebas', 'Envío de pruebas'], ['solicitud_documentacion', 'Solicitud de documentación'], ['firma_ficha', 'Firma de Ficha Personal']] },
+  { id: 'fase2', title: 'Fase II: Segunda Reunión', items: [['entrevista_2', 'Entrevista presencial 2'], ['video_presentacion', 'Solicitud video presentación'], ['referencias_video', 'Solicitud referencias video'], ['validar_referencias', 'Validar referencias (Llamada)']] },
+  { id: 'fase3', title: 'Fase III: Tercera Reunión', items: [['entrevista_3', 'Entrevista presencial 3'], ['solicitud_antecedentes', 'Solicitud de antecedentes'], ['revision_antecedentes', 'Revisión de antecedentes']] },
+  { id: 'final', title: 'Fase Final: Cierre', stage: 6, items: [['informes', 'Informes psico-laborales'], ['terna', 'Presentación de terna', false, 5], ['decision', 'Decisión del cliente']] },
+];
+const AV_DAYS = 30;
+const avItem = (key) => { for (const c of AVANCE) for (const it of c.items) if (it[0] === key) return { col: c, key: it[0], label: it[1], optional: !!it[2], stage: it[3] }; return null; };
+const avChecklist = (p) => (p && p.checklist && typeof p.checklist === 'object') ? p.checklist : {};
+function avStats(p) {
+  const ck = avChecklist(p); let done = 0, total = 0;
+  const cols = AVANCE.map(c => {
+    const req = c.items.filter(i => !i[2]);
+    const d = req.filter(i => ck[i[0]]).length; done += d; total += req.length;
+    return { id: c.id, done: d, total: req.length, complete: d === req.length };
+  });
+  const next = AVANCE.flatMap(c => c.items.filter(i => !i[2] && !ck[i[0]]).map(i => i[1]))[0] || null;
+  return { done, total, pct: total ? Math.round(done / total * 100) : 0, cols, next };
+}
+
+// --- Días hábiles en Perú (sin sábados, domingos ni feriados nacionales) ---
+function easterDate(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(y, month - 1, day);
+}
+const _holiCache = {};
+function peHolidays(y) {
+  if (_holiCache[y]) return _holiCache[y];
+  const fixed = ['01-01', '05-01', '06-07', '06-29', '07-23', '07-28', '07-29', '08-06', '08-30', '10-08', '11-01', '12-08', '12-09', '12-25'];
+  const set = new Set(fixed.map(md => `${y}-${md}`));
+  const e = easterDate(y);
+  [-3, -2].forEach(off => { const d = new Date(e); d.setDate(d.getDate() + off); set.add(isoLocal(d)); }); // Jueves y Viernes Santo
+  return (_holiCache[y] = set);
+}
+function isoLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function isBusinessDay(d) { const w = d.getDay(); return w !== 0 && w !== 6 && !peHolidays(d.getFullYear()).has(isoLocal(d)); }
+function addBusinessDays(startISO, n) { const d = toDate(startISO); let k = 0; while (k < n) { d.setDate(d.getDate() + 1); if (isBusinessDay(d)) k++; } return isoLocal(d); }
+function businessDaysBetween(aISO, bISO) { // días hábiles transcurridos después de a, hasta b inclusive
+  const a = toDate(aISO), b = toDate(bISO); if (!a || !b || b <= a) return 0;
+  let n = 0; const d = new Date(a); while (d < b) { d.setDate(d.getDate() + 1); if (isBusinessDay(d)) n++; } return n;
+}
+function avTimer(p) {
+  const ck = avChecklist(p), start = ck.cronograma?.at ? String(ck.cronograma.at).slice(0, 10) : null;
+  if (!start) return { state: 'none', html: '<span class="text-slate-400">Cronograma sin iniciar</span>', short: '—' };
+  const deadline = addBusinessDays(start, AV_DAYS);
+  if (ck.decision?.at) {
+    const used = businessDaysBetween(start, String(ck.decision.at).slice(0, 10));
+    const ok = used <= AV_DAYS;
+    return { state: ok ? 'ok' : 'late', short: `${used}/${AV_DAYS} d`, html: `<span class="${ok ? 'text-emerald-700' : 'text-rose-600'} font-semibold"><i class="ph-bold ph-flag-checkered"></i> Cerrado en ${used} días hábiles${ok ? '' : ` (${used - AV_DAYS} de exceso)`}</span>` };
+  }
+  const used = businessDaysBetween(start, todayISO()), left = AV_DAYS - used;
+  const tone = left < 0 ? 'text-rose-600' : left <= 5 ? 'text-amber-700' : 'text-sky-700';
+  const txt = left < 0 ? `Vencido hace ${-left} días hábiles` : left === 0 ? 'Vence hoy' : `Quedan ${left} días hábiles`;
+  return { state: left < 0 ? 'late' : left <= 5 ? 'warn' : 'ok', short: left < 0 ? `+${-left} d` : `${left} d`, html: `<span class="${tone} font-semibold"><i class="ph-bold ph-timer"></i> Día ${Math.min(used, 999)} de ${AV_DAYS} · ${txt}</span> <span class="text-slate-400">(vence ${fmtDate(deadline)})</span>` };
+}
+
+// --- Vistas ---
+function renderAvance() {
+  shell('sec-avance', `
+    <div class="panel p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div><h2 class="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2"><i class="ph-bold ph-list-checks text-sky-600"></i> Control de Avance</h2>
+        <p class="text-xs text-slate-500">Seguimiento metodológico de cada proceso: marca los pasos a medida que los completas.</p></div>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="inline-flex bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+          <button id="av-tab-res" onclick="S.avView='res'; renderAvanceBody()" class="px-3 py-1 rounded-md">Resumen</button>
+          <button id="av-tab-det" onclick="S.avView='det'; renderAvanceBody()" class="px-3 py-1 rounded-md">Detalle</button>
+        </div>
+        <select id="av-proc" onchange="S.avProc=this.value; S.avView='det'; renderAvanceBody()" class="inp w-72"></select>
+      </div>
+    </div>
+    <div id="av-body"></div>`);
+  renderAvanceBody();
+}
+function avProcList() { return [...S.processes].sort((a, b) => (a.stage === 7) - (b.stage === 7) || String(a.brief_date).localeCompare(String(b.brief_date))); }
+function renderAvanceBody() {
+  const list = avProcList();
+  if (!S.avProc || !procById(S.avProc)) S.avProc = (list.find(p => p.stage < 7) || list[0] || {}).id;
+  const sel = $('av-proc');
+  sel.innerHTML = list.length ? list.map(p => `<option value="${p.id}">${esc(p.client)} · ${esc(p.job_title)}${p.stage === 7 ? ' (cerrado)' : ''}</option>`).join('') : '<option value="">Sin procesos</option>';
+  if (S.avProc) sel.value = S.avProc;
+  const view = S.avView || 'res';
+  $('av-tab-res').className = 'px-3 py-1 rounded-md ' + (view === 'res' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-600');
+  $('av-tab-det').className = 'px-3 py-1 rounded-md ' + (view === 'det' ? 'bg-white text-sky-800 shadow-sm' : 'text-slate-600');
+  sel.classList.toggle('hidden', view !== 'det');
+  if (!list.length) { $('av-body').innerHTML = '<div class="panel p-8 text-center text-slate-500 text-xs">Crea un proceso en "Procesos B2B" para empezar su control de avance.</div>'; return; }
+  $('av-body').innerHTML = view === 'det' ? avDetailHTML(procById(S.avProc)) : avSummaryHTML(list);
+}
+function avBar(pct, tone) { return `<div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-2 rounded-full ${tone || (pct === 100 ? 'bg-emerald-500' : 'bg-sky-600')}" style="width:${pct}%"></div></div>`; }
+function avSummaryHTML(list) {
+  const showClosed = !!S.avClosed;
+  const rows = list.filter(p => showClosed || p.stage < 7);
+  return `<div class="panel overflow-x-auto">
+    <div class="flex items-center justify-between px-4 pt-3"><p class="text-[11px] text-slate-500">${rows.length} proceso(s) · haz clic en uno para ver su checklist</p>
+      <label class="text-[11px] text-slate-600 flex items-center gap-1.5"><input type="checkbox" ${showClosed ? 'checked' : ''} onchange="S.avClosed=this.checked; renderAvanceBody()"> Incluir cerrados</label></div>
+    <table class="w-full text-xs mt-2"><thead class="text-slate-500 text-left border-b border-slate-200"><tr>
+      <th class="px-4 py-2">Proceso</th><th class="px-2 w-40">Avance</th>${AVANCE.map((c, i) => `<th class="px-1 text-center" title="${esc(c.title)}">${['Prep.', 'Atrac.', 'F. I', 'F. II', 'F. III', 'Cierre'][i]}</th>`).join('')}<th class="px-2">Cronograma</th><th class="px-4">Siguiente paso</th></tr></thead>
+    <tbody class="divide-y divide-slate-100">${rows.map(p => {
+      const st = avStats(p), t = avTimer(p);
+      const tTone = { ok: 'bg-sky-50 text-sky-700', warn: 'bg-amber-100 text-amber-800', late: 'bg-rose-100 text-rose-700', none: 'bg-slate-100 text-slate-400' }[t.state];
+      return `<tr class="hover:bg-slate-50 cursor-pointer" onclick="S.avProc='${p.id}'; S.avView='det'; renderAvanceBody()">
+        <td class="px-4 py-2.5"><p class="font-semibold text-slate-900">${esc(p.job_title)}</p><p class="text-[11px] text-sky-700">${esc(p.client)}</p></td>
+        <td class="px-2"><div class="flex items-center gap-2"><div class="flex-1">${avBar(st.pct)}</div><span class="font-bold text-slate-700 w-9 text-right">${st.pct}%</span></div></td>
+        ${st.cols.map(c => `<td class="px-1 text-center"><span class="inline-block min-w-[34px] px-1.5 py-0.5 rounded text-[10px] font-bold ${c.complete ? 'bg-emerald-100 text-emerald-800' : c.done ? 'bg-sky-50 text-sky-700' : 'bg-slate-100 text-slate-400'}">${c.done}/${c.total}</span></td>`).join('')}
+        <td class="px-2"><span class="chip ${tTone}">${t.short}</span></td>
+        <td class="px-4 text-slate-600">${st.next ? esc(st.next) : '<span class="text-emerald-700 font-semibold">Completo</span>'}</td></tr>`;
+    }).join('') || '<tr><td colspan="10" class="px-4 py-6 text-center text-slate-400">No hay procesos abiertos.</td></tr>'}</tbody></table></div>`;
+}
+function avDetailHTML(p) {
+  if (!p) return '';
+  const ck = avChecklist(p), st = avStats(p), dis = canEdit() ? '' : 'disabled';
+  const card = (c, idx) => {
+    const cs = st.cols[idx];
+    return `<div class="bg-white rounded-xl border ${cs.complete ? 'border-emerald-300' : 'border-slate-200'} p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[13px] font-bold text-slate-900 flex items-center gap-2"><span class="w-6 h-6 rounded-full ${cs.complete ? 'bg-emerald-600' : 'bg-sky-700'} text-white text-[11px] flex items-center justify-center">${cs.complete ? '<i class="ph-bold ph-check"></i>' : idx + 1}</span>${esc(c.title)}</h3>
+        <span class="text-[11px] font-bold ${cs.complete ? 'text-emerald-700' : 'text-slate-500'}">${cs.done}/${cs.total}</span>
+      </div>
+      <div class="space-y-1">${c.items.map(([key, label, optional]) => {
+        const v = ck[key];
+        return `<label class="flex items-start gap-2.5 px-2 py-1.5 rounded-lg ${canEdit() ? 'cursor-pointer hover:bg-slate-50' : ''}" ${v ? `title="Marcado el ${fmtDateTime(v.at)}${v.by ? ' por ' + esc(v.by) : ''}"` : ''}>
+          <input type="checkbox" ${v ? 'checked' : ''} ${dis} onchange="toggleAvance('${p.id}','${key}',this)" class="w-4 h-4 mt-0.5 rounded accent-emerald-600">
+          <span class="text-[12px] leading-snug ${v ? 'text-slate-900' : 'text-slate-600'}">${esc(label)}${optional ? ' <span class="text-[10px] text-slate-400">(opcional)</span>' : ''}
+          ${v ? `<span class="block text-[10px] text-slate-400">${fmtDate(v.at)}${v.by ? ' · ' + esc(String(v.by).split('@')[0]) : ''}</span>` : ''}</span></label>`;
+      }).join('')}</div></div>`;
+  };
+  return `<div class="panel p-4 mb-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+        <div><p class="text-[11px] font-bold text-sky-700 uppercase">${esc(p.client)}</p><h3 class="text-base font-bold text-slate-900">${esc(p.job_title)}</h3>
+          <p class="text-[11px] text-slate-500">Etapa en el tablero: ${p.stage}. ${esc(stages()[p.stage - 1])}</p></div>
+        <div class="text-[11px] md:text-right">${avTimer(p).html}</div>
+      </div>
+      <div class="flex items-center gap-3 mt-3"><div class="flex-1">${avBar(st.pct)}</div><span class="text-sm font-bold text-slate-800">${st.done} de ${st.total} pasos · ${st.pct}%</span></div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-4">${AVANCE.map(card).join('')}</div>`;
+}
+async function toggleAvance(pid, key, el) {
+  const p = procById(pid), it = avItem(key); if (!p || !it) return;
+  const done = el.checked;
+  el.disabled = true;
+  try {
+    let ck;
+    if (MODE === 'demo') {
+      const row = DEMO.processes.find(x => x.id === pid);
+      row.checklist = { ...(row.checklist || {}) };
+      if (done) row.checklist[key] = { at: nowISO(), by: S.profile?.email || 'demo' }; else delete row.checklist[key];
+      demoSave(); ck = row.checklist;
+    } else {
+      ck = await api.rpc('toggle_checklist', { p_process: pid, p_key: key, p_done: done });
+    }
+    p.checklist = ck;
+    await api.log('process', pid, `${p.client} · ${p.job_title}`, 'Control de avance', `${done ? '✓' : '✗'} ${it.label}`);
+    renderAvanceBody();
+    if (done) avSuggestStage(p, it);
+  } catch (e) { el.checked = !done; el.disabled = false; err(e); }
+}
+function avSuggestStage(p, it) {
+  if (!canEdit()) return;
+  const st = avStats(p), colIdx = AVANCE.indexOf(it.col);
+  let target = it.stage || null;
+  if (!target && st.cols[colIdx].complete && it.col.stage) target = it.col.stage;
+  if (target && target > (p.stage || 1)) {
+    const why = it.stage ? `Marcaste "${it.label}".` : `Completaste "${it.col.title}".`;
+    setTimeout(() => { if (confirm(`${why}\n¿Mover el proceso a "${stages()[target - 1]}" en el tablero de Procesos B2B?`)) moveProcess(p.id, target); }, 50);
+  }
 }
 
 // ===================== CANDIDATOS (KANBAN 7 FASES) =====================
@@ -1344,6 +1519,11 @@ async function exportExcel() {
       return { Cliente: p.client, Puesto: p.job_title, Etapa: `${p.stage}. ${st[p.stage - 1]}`, 'Fecha brief': p.brief_date, 'Fecha cierre': p.closed_at, Vacantes: p.vacancies_count,
         'Candidatos activos': s.active, Contratados: s.hired, Remuneración: p.salary, Modalidad: p.modality, Sede: p.location, Contacto: p.contact_name };
     })), 'Procesos');
+    X.utils.book_append_sheet(wb, X.utils.json_to_sheet(S.processes.map(p => {
+      const ck = avChecklist(p), st = avStats(p), row = { Cliente: p.client, Puesto: p.job_title, 'Avance %': st.pct, Cronograma: avTimer(p).short };
+      AVANCE.forEach(c => c.items.forEach(([k, label]) => { row[label] = ck[k]?.at ? String(ck[k].at).slice(0, 10) : ''; }));
+      return row;
+    })), 'Control de Avance');
     if (isAdmin()) X.utils.book_append_sheet(wb, X.utils.json_to_sheet(S.billing.map(b => ({ Cliente: b.client, Servicio: b.service, Contacto: b.contact, 'Costo total': +b.cost, '% comisión': +b.percent, Comisión: (+b.cost * +b.percent) / 100, Estado: b.status, Factura: b.invoice_number, 'Fecha pago': b.paid_at }))), 'Finanzas');
     X.writeFile(wb, `TalentHub_${todayISO()}.xlsx`);
   } catch (e) { err(e); }
