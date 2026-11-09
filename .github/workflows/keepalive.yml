@@ -1,11 +1,11 @@
 # Mantiene activo el proyecto de Supabase (el plan gratuito se pausa tras 7 días sin uso).
-# Todos los días hace una consulta que solo LEE (devuelve "ok"); no guarda nada en la base de datos.
+# Cada 3 horas hace una consulta que solo LEE una tabla (devuelve "ok"); no guarda nada en la base de datos.
 # Una vez al mes actualiza .github/keepalive.txt (una sola línea) para que GitHub no apague esta tarea.
 name: Mantener Supabase activo
 
 on:
   schedule:
-    - cron: '17 13 * * *'   # todos los días, 8:17 a. m. hora de Perú
+    - cron: '17 */3 * * *'  # cada 3 horas (8 veces al día)
   workflow_dispatch:         # permite ejecutarla a mano
 
 permissions:
